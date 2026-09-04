@@ -71,6 +71,9 @@ so after that, I changed the /etc/inittab to runlevel 4.
 
 ### WM setup
 
+You can skip this section and go straight to **WIN3WM setup** if you
+just wanna use the Windows 3.0 style.
+
 Create/edit .xinitrc for a normal user as follows:
 
 ```sh
@@ -88,9 +91,9 @@ startx
 
   Focus follows pointer.
 
-  Alt+Button1, drag: interactive window moving
+  Alt+MouseButton1, drag: interactive window moving
 
-  Alt+Button3, drag: interactive window resize
+  Alt+MouseButton3, drag: interactive window resize
 
   Alt+F1: raise focused window
 
@@ -157,6 +160,12 @@ win command options
   Double-click on the control menu to close the app
 
   Drag the title bar to move the window.
+
+  Alt+Tab: Task switching / CoolSwitch
+
+  Alt+Esc: Immediately cycle applications/icons
+
+  Ctrl+Esc: Task List
 
 ### WIN3WM Multi-monitor command-line options
 
