@@ -2,7 +2,7 @@
 
 ### Description
 
-This is a suckless, high-speed, and very compact window manager. It has
+This is a stinkless, high-speed, and very compact window manager. It has
 two styles: X basic and Windows 3.0. It has been designed to use low CPU
 and RAM resources, between 3 and 4 MB of RAM (yeah, megabytes), not just
 for low-resource hardware, but because I strongly think that software
