@@ -1,4 +1,4 @@
-## WIN3WM/WM: A Minimalistic Window Manager that Stinks Less
+## WIN3WM/WM: A Minimalist Window Manager That Stinks Less
 
 ### Description
 
