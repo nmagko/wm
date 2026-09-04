@@ -4,7 +4,7 @@
 
 This is a suckless, high-speed, and very compact window manager. It has
 two styles: X basic and Windows 3.0. It has been designed to use low CPU
-and RAM resources, between 2 and 3 MB of RAM (yeah, megabytes), not just
+and RAM resources, between 3 and 4 MB of RAM (yeah, megabytes), not just
 for low-resource hardware, but because I strongly think that software
 has to be simple and minimal. Nowadays, most of the window managers have
 too many features; in my experience, features that I've never used.
