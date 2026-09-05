@@ -444,7 +444,8 @@ static void draw_min_button (Window window, GC gc, int x, int pressed) {
   XSetForeground(dpy, gc, C_BLACK);
   XDrawLine(dpy, window, gc, x + 5, y + 6, x + w / 2, y + 10);
   XDrawLine(dpy, window, gc, x + w / 2, y + 10, x + w - 6, y + 6);
-  XDrawLine(dpy, window, gc, x + 6, y + 7, x + w - 7, y + 7);
+  /* XDrawLine(dpy, window, gc, x + 6, y + 7, x + w - 7, y + 7); */
+  XDrawLine(dpy, window, gc, x + 5, y + 6, x + w - 6, y + 6);
 }
 
 /* Upward triangle as a maximize button */
@@ -457,7 +458,8 @@ static void draw_max_button (Window window, GC gc, int x, int pressed, int maxim
   if (!maximized) {
     XDrawLine(dpy, window, gc, x + 5, y + 9, x + w / 2, y + 5);
     XDrawLine(dpy, window, gc, x + w / 2, y + 5, x + w - 6, y + 9);
-    XDrawLine(dpy, window, gc, x + 6, y + 8, x + w - 7, y + 8);
+    /* XDrawLine(dpy, window, gc, x + 6, y + 8, x + w - 7, y + 8); */
+    XDrawLine(dpy, window, gc, x + 5, y + 9, x + w - 6, y + 9);
   } else {
     XDrawRectangle(dpy, window, gc, x + 5, y + 5, 6, 5);
     XDrawRectangle(dpy, window, gc, x + 7, y + 7, 6, 5);
