@@ -179,6 +179,7 @@ int main (int argc, char *argv[]) {
     fclose(file);
     printf(" done.\n");
   } else goto exec;
+  /* Yes, goto. Now, what are you gonna do about it? mf */
 
   if (access(xinitrc, F_OK) != -1) {
     if (access(backup, F_OK) == -1) {

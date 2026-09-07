@@ -828,8 +828,9 @@ static Win3Window *manage (Window client) {
   memset(&fa, 0, sizeof(fa));
   fa.override_redirect = True;
   fa.background_pixel = C_FACE;
+  /* allowing the parent to act when its child window dynamically changes */
   fa.event_mask = ExposureMask | ButtonPressMask | ButtonReleaseMask |
-    PointerMotionMask | StructureNotifyMask;
+    PointerMotionMask | StructureNotifyMask | SubstructureRedirectMask;
   w->frame = XCreateWindow(dpy, root, fx, fy,
                            (unsigned)frame_width(w), (unsigned)frame_height(w),
                            0, CopyFromParent, InputOutput, CopyFromParent,
