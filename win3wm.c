@@ -31,16 +31,19 @@
 #include <X11/keysym.h>
 #include "wmver.h"
 
-#define MAX(a,b) ((a) > (b) ? (a) : (b))
-
+/* ================================================================ */
+/* Constants and macros */
+/* ================================================================ */
 /* VGA palette */
 #define C_DESKTOP       0x00808080UL
 #define C_FACE          0x00C0C0C0UL
 #define C_WHITE         0x00FFFFFFUL
 #define C_BLACK         0x00000000UL
 #define C_DARKGRAY      0x00808080UL
-#define C_ACTIVE_TITLE  0x00000080UL
-#define C_INACTIVE      0x00808080UL
+/* #define C_ACTIVE_TITLE  0x00000080UL */
+/* #define C_INACTIVE      0x00808080UL */
+#define C_ACTIVE_TITLE  0x00537FADUL
+#define C_INACTIVE      0x00A6A6A6UL
 
 /* Compact geometry */
 #define FRAME_EDGE        4
@@ -74,6 +77,16 @@
 #define TASK_BTN_H         22
 #define TASK_GAP            8
 
+#define RESIZE_LEFT   1
+#define RESIZE_RIGHT  2
+#define RESIZE_TOP    4
+#define RESIZE_BOTTOM 8
+
+#define MAX(a,b) ((a) > (b) ? (a) : (b))
+
+/* ================================================================ */
+/* Data structures */
+/* ================================================================ */
 typedef struct Win3Window {
   Window client;
   Window frame;
@@ -92,6 +105,16 @@ typedef struct Win3Window {
   struct Win3Window *next;
 } Win3Window;
 
+typedef struct MonitorInfo {
+  char name[64];
+  char modes[64][32];
+  int nmodes;
+  int primary;
+} MonitorInfo;
+
+/* ================================================================ */
+/* Globals */
+/* ================================================================ */
 static Display *dpy;
 static int screen;
 static Window root;
@@ -114,11 +137,6 @@ static int resize_start_x_root, resize_start_y_root;
 static int resize_x, resize_y, resize_w, resize_h;
 static int resize_start_x, resize_start_y, resize_start_w, resize_start_h;
 static GC resize_gc;
-
-#define RESIZE_LEFT   1
-#define RESIZE_RIGHT  2
-#define RESIZE_TOP    4
-#define RESIZE_BOTTOM 8
 
 static Time last_control_click_time;
 static Window last_control_click_window;
@@ -143,14 +161,6 @@ static int last_task_click_index = -1;
 /* ================================================================ */
 /* Handling monitors with xrandr */
 /* ================================================================ */
-
-typedef struct MonitorInfo {
-  char name[64];
-  char modes[64][32];
-  int nmodes;
-  int primary;
-} MonitorInfo;
-
 static int safe_output_name (const char *s) {
   const unsigned char *p = (const unsigned char *)s;
   if (!s || !*s) return 0;
@@ -177,8 +187,7 @@ static int read_monitors (MonitorInfo *mons, int maxmons) {
     if (line[0] != ' ' && line[0] != '\t') {
       current = -1;
       if (sscanf(line, "%63s %31s", name, status) == 2 &&
-          strcmp(status, "connected") == 0 && n < maxmons &&
-          safe_output_name(name)) {
+          strcmp(status, "connected") == 0 && n < maxmons && safe_output_name(name)) {
         memset(&mons[n], 0, sizeof(mons[n]));
         snprintf(mons[n].name, sizeof(mons[n].name), "%s", name);
         mons[n].primary = strstr(line, " connected primary ") != NULL;
@@ -335,7 +344,6 @@ static int change_save_set_safely (Window window, int mode) {
 /* ================================================================ */
 /* Windows 3.0-style decorations */
 /* ================================================================ */
-
 static int frame_width (const Win3Window *w) {
   return w->width + 2 * FRAME_EDGE;
 }
@@ -357,8 +365,7 @@ static Win3Window *find_client (Window window) {
 static Win3Window *find_any (Window window) {
   Win3Window *w;
   for (w = windows; w; w = w->next)
-    if (w->client == window || w->frame == window || w->titlebar == window ||
-        w->iconwin == window)
+    if (w->client == window || w->frame == window || w->titlebar == window || w->iconwin == window)
       return w;
   return NULL;
 }
@@ -553,7 +560,6 @@ static void draw_frame (Win3Window *w) {
 /* ================================================================ */
 /* Windows 3.0-style objects' behavior */
 /* ================================================================ */
-
 static void focus_window (Win3Window *w);
 static void constrain_client_position (Win3Window *w);
 static void apply_geometry (Win3Window *w);
@@ -790,7 +796,6 @@ static void read_normal_hints (Win3Window *w) {
 /* ================================================================ */
 /* Windows 3.0-style objects' handling */
 /* ================================================================ */
-
 static Win3Window *manage (Window client) {
   XWindowAttributes a;
   XSetWindowAttributes fa, ta;
@@ -1091,8 +1096,7 @@ static void handle_title_press (Win3Window *w, XButtonEvent *e) {
   int button;
   focus_window(w);
   if (control_box_hit(e->x, e->y)) {
-    if (last_control_click_window == w->client &&
-        e->time - last_control_click_time <= 350) {
+    if (last_control_click_window == w->client && e->time - last_control_click_time <= 350) {
       send_delete(w);
       last_control_click_window = None;
       last_control_click_time = 0;
@@ -1168,7 +1172,6 @@ static void handle_configure_request (XConfigureRequestEvent *e) {
 /* ================================================================ */
 /* Windows 3.0-style task switching */
 /* ================================================================ */
-
 static int focus_seq_cmp (const void *aa, const void *bb) {
   const Win3Window *a = *(Win3Window * const *)aa;
   const Win3Window *b = *(Win3Window * const *)bb;
@@ -1279,7 +1282,6 @@ static void handle_alt_tab (int backwards) {
 /* ================================================================ */
 /* Windows 3.0-style task list */
 /* ================================================================ */
-
 static int task_count (void) {
   Win3Window *w;
   int n = 0;
@@ -1500,8 +1502,7 @@ static void task_switch_selected (void) {
 
 static void task_button_press (XButtonEvent *e) {
   int x = e->x, y = e->y;
-  if (y >= TASK_LIST_Y && y < TASK_LIST_Y + TASK_LIST_H &&
-      x >= TASK_MARGIN && x < TASK_W - TASK_MARGIN) {
+  if (y >= TASK_LIST_Y && y < TASK_LIST_Y + TASK_LIST_H && x >= TASK_MARGIN && x < TASK_W - TASK_MARGIN) {
     int idx = task_top + (y - TASK_LIST_Y - 1) / TASK_ROW_H;
     if (idx >= 0 && idx < task_count()) {
       task_selected = idx;
@@ -1601,7 +1602,6 @@ static void grab_task_switch_keys (void) {
 /* ================================================================ */
 /* Main event loop */
 /* ================================================================ */
-
 static void event_loop (void) {
   XEvent ev;
   for (;;) {
@@ -1769,8 +1769,7 @@ static void event_loop (void) {
       if (ev.xconfigure.window == root) {
         arrange_icons();
         if (task_open && task_win)
-          XMoveWindow(dpy, task_win, (ev.xconfigure.width - TASK_W) / 2,
-                      (ev.xconfigure.height - TASK_H) / 2);
+          XMoveWindow(dpy, task_win, (ev.xconfigure.width - TASK_W) / 2, (ev.xconfigure.height - TASK_H) / 2);
       }
       break;
     default:
@@ -1782,7 +1781,6 @@ static void event_loop (void) {
 /* ================================================================ */
 /* Main launcher */
 /* ================================================================ */
-
 int main (int argc, char **argv) {
   XSetWindowAttributes ra;
   Window dummy1, dummy2, *children = NULL;
@@ -1826,8 +1824,7 @@ int main (int argc, char **argv) {
     for (i = 0; i < nchildren; ++i) {
       XWindowAttributes a;
       if (XGetWindowAttributes(dpy, children[i], &a) &&
-          !a.override_redirect && a.class != InputOnly &&
-          a.map_state == IsViewable)
+          !a.override_redirect && a.class != InputOnly && a.map_state == IsViewable)
         manage(children[i]);
     }
     if (children) XFree(children);

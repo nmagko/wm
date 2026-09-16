@@ -32,6 +32,8 @@ consumption.
 
   win.c: Windows 3.0-style launcher and first-time setup
 
+  gnuos.c: Windows 3.0-style msdos executive clone
+
 ### Prerequisites
 
 Xorg, Xorg development packages, xterm, xrandr utility, and sysv-rc. The
@@ -179,13 +181,30 @@ win command options
   /N: enable only connected monitor N, make it primary, place it at 0x0,
   and turn all the other outputs off.
 
+### GNUOS Executive, minimal features (still in evaluation)
+
+  Drive buttons auto-detected from df (ext4, ext3, vfat)
+
+  Short view with bold directories, underscored executables
+
+  File menu: Open, Copy, Move, Rename, Delete, Create Subdirectory
+
+  Copy/Move uses a directory browser dialog
+
+  Create/Rename use text input dialogs
+
+  Delete/Overwrite use Yes/No/All confirmations
+
 ### Screenshots
 
 **Task list, windows, and iconized programs**
-![Alt About](img/win3wm.png)
+![Alt Task_list](img/win3wm.png)
 
 **Windows 3.0-style cascade mode**
-![Alt About](img/cascade.png)
+![Alt Cascade](img/cascade.png)
 
 **Windows 3.0-style tiling mode**
-![Alt About](img/tile.png)
+![Alt Tiles](img/tile.png)
+
+**Windows 3.0-style gnuos executive**
+![Alt About](img/gnuos.png)

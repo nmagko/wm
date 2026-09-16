@@ -1,6 +1,6 @@
 #
 #  WM is a window manager (Win 3.0-style)
-#  Copyright (C) 2018  Victor C. Salas P. (aka nmag) <nmagko@gmail.com>
+#  Copyright (C) 2018, 2026  Victor C. Salas P. (aka nmag) <nmagko@gmail.com>
 #
 #  This program is free software: you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -18,6 +18,7 @@
 
 PREFIX?=/usr/X11R6
 CFLAGS?=-std=c11 -Wall -Wextra -Wpedantic -O2
+EFLAGS?=-Wno-stringop-truncation -Wno-format-truncation
 INSTALL= install
 RM     = rm
 STRIP  = strip
@@ -25,12 +26,14 @@ STRIP  = strip
 all:
 	$(CC) $(CFLAGS) -I$(PREFIX)/include -L$(PREFIX)/lib -o wm wm.c -lX11
 	$(CC) $(CFLAGS) -I$(PREFIX)/include -L$(PREFIX)/lib -o win3wm win3wm.c -lX11
+	$(CC) $(CFLAGS) $(EFLAGS) -I$(PREFIX)/include -L$(PREFIX)/lib -o gnuos gnuos.c -lX11
 	$(CC) $(CFLAGS) -I$(PREFIX)/include -L$(PREFIX)/lib -o win win.c
 
 clean:
 	$(RM) -f *~
 	$(RM) -f wm
 	$(RM) -f win3wm
+	$(RM) -f gnuos
 	$(RM) -f win
 
 install:
@@ -38,10 +41,13 @@ install:
 	$(INSTALL) -o root -m 755 -v wm /usr/local/bin/
 	$(STRIP) win3wm
 	$(INSTALL) -o root -m 755 -v win3wm /usr/local/bin/
+	$(STRIP) gnuos
+	$(INSTALL) -o root -m 755 -v gnuos /usr/local/bin/
 	$(STRIP) win
 	$(INSTALL) -o root -m 755 -v win /usr/local/bin/
 
 uninstall:
 	$(RM) -f /usr/local/bin/wm
 	$(RM) -f /usr/local/bin/win3wm
+	$(RM) -f /usr/local/bin/gnuos
 	$(RM) -f /usr/local/bin/win

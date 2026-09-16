@@ -1,6 +1,6 @@
 /*
  * WM is a window manager (X basic-style)
- * Copyright (C) 2018  Victor C. Salas P. (aka nmag) <nmagko@gmail.com>
+ * Copyright (C) 2018, 2026  Victor C. Salas P. (aka nmag) <nmagko@gmail.com>
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -19,14 +19,26 @@
 
 /* Version info */
 
-#define pVer  "0.03a"
+#define pVer     "0.03a"
 
-#define pDate "2018"
+#define pDate    "2018"
+
+#define uDate    "2026"
+
+#define pAuthor  " Victor \"nmagko\" C"
 
 /* Version strings */
 
-#define WM_TUI_VERSION_SHORT   "WM Window Manager v" pVer
+#define WM_MGR_VERSION_NAME    "WM Window Manager"
 
-#define WM_TUI_VERSION_STRING  WM_TUI_VERSION_SHORT "\nCopyright (C) " pDate " Victor \"nmagko\" C"
+#define WM_MGR_VERSION_NUMBER  "Version " pVer
 
-#define WM_GUI_VERSION_STRING  "WM Window Manager\nVersion " pVer "\nCopyright (C) " pDate " Victor \"nmagko\" C."
+#define WM_MGR_COPYRIGHT       "Copyright (C) " pDate pAuthor
+
+#define WM_MGR_COPYRIGHT_UPD   "Copyright (C) " uDate pAuthor
+
+#define WM_TUI_VERSION_SHORT   WM_MGR_VERSION_NAME " v" pVer
+
+#define WM_TUI_VERSION_STRING  WM_TUI_VERSION_SHORT "\nCopyright (C) " pDate pAuthor
+
+#define WM_GUI_VERSION_STRING  WM_MGR_VERSION_NAME "\n" WM_MGR_VERSION_NUMBER "\n" WM_MGR_COPYRIGHT

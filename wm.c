@@ -25,12 +25,18 @@
 #include <X11/Xlib.h>
 #include "wmver.h"
 
+/* ================================================================ */
+/* Constants and macros */
+/* ================================================================ */
+#define S_BORDER  3
+/* #define C_BORDER  0x00AFBFCFUL // light pastel blue */
+#define C_BORDER  0x00537FADUL // pastel blue
+
 #define MAX(a, b) ((a) > (b) ? (a) : (b))
 
 /* ================================================================ */
 /* X basic-style objects' handling */
 /* ================================================================ */
-
 /* Error events handler */
 int wmCatch (Display *dpy, XErrorEvent *xe) {
   (void)dpy; /* Suppress unused parameter warning */
@@ -72,7 +78,6 @@ static void wmWindowsBorder (Display *dpy, Window root, unsigned int brdw, unsig
 /* ================================================================ */
 /* Main launcher */
 /* ================================================================ */
-
 int main (void) {
   Display *dpy;
   Window root;
@@ -82,8 +87,8 @@ int main (void) {
   XButtonEvent start;
   int dragging = 0;
   XEvent ev;
-  unsigned int brdw = 3;
-  unsigned long brdc = 0xAFBFCF;
+  unsigned int brdw = S_BORDER;
+  unsigned long brdc = C_BORDER;
 
   if ( !(dpy = XOpenDisplay(0x0)) ) return EXIT_FAILURE;
 
@@ -107,14 +112,14 @@ int main (void) {
 
   /* Main event loop */
   for (;;) {
-    XNextEvent ( dpy, &ev );
+    XNextEvent(dpy, &ev);
     if ( ev.type == KeyPress && ev.xkey.subwindow != None ) {
-      XRaiseWindow ( dpy, ev.xkey.subwindow );
+      XRaiseWindow(dpy, ev.xkey.subwindow);
     } else if ( ev.type == ButtonPress && ev.xbutton.subwindow != None ) {
-      XGrabPointer ( dpy, ev.xbutton.subwindow, True,
-                     PointerMotionMask|ButtonReleaseMask, GrabModeAsync,
-                     GrabModeAsync, None, None, CurrentTime );
-      XGetWindowAttributes ( dpy, ev.xbutton.subwindow, &attr );
+      XGrabPointer(dpy, ev.xbutton.subwindow, True,
+                   PointerMotionMask|ButtonReleaseMask, GrabModeAsync,
+                   GrabModeAsync, None, None, CurrentTime);
+      XGetWindowAttributes(dpy, ev.xbutton.subwindow, &attr);
       start = ev.xbutton;
       dragging = 1;
     } else if ( ev.type == MotionNotify && dragging ) {
@@ -122,18 +127,17 @@ int main (void) {
       while ( XCheckTypedEvent(dpy, MotionNotify, &ev) );
       xdiff = ev.xbutton.x_root - start.x_root;
       ydiff = ev.xbutton.y_root - start.y_root;
-      XMoveResizeWindow ( dpy, ev.xmotion.window,
-                          attr.x + (start.button==1 ? xdiff : 0),
-                          attr.y + (start.button==1 ? ydiff : 0),
-                          MAX(1, attr.width + (start.button==3 ? xdiff : 0)),
-                          MAX(1, attr.height + (start.button==3 ? ydiff : 0)) );
+      XMoveResizeWindow(dpy, ev.xmotion.window,
+                        attr.x + (start.button==1 ? xdiff : 0),
+                        attr.y + (start.button==1 ? ydiff : 0),
+                        MAX(1, attr.width + (start.button==3 ? xdiff : 0)),
+                        MAX(1, attr.height + (start.button==3 ? ydiff : 0)));
     } else if ( ev.type == ButtonRelease ) {
-      XUngrabPointer ( dpy, CurrentTime );
+      XUngrabPointer(dpy, CurrentTime);
       dragging = 0;
     } else if ( ev.type == CreateNotify ) {
       wmWindowsBorder(dpy, root, brdw, brdc);
     }
   }
-
-  XSetErrorHandler (NULL);
+  XSetErrorHandler(NULL);
 }
