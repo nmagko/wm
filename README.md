@@ -197,7 +197,7 @@ win command options
 
 ### Screenshots
 
-**Task list, windows, and iconized programs**
+**Windows and iconized programs**
 ![Alt Task_list](img/win3wm.png)
 
 **Windows 3.0-style cascade mode**
