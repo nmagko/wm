@@ -450,9 +450,8 @@ static void draw_min_button (Window window, GC gc, int x, int pressed) {
   XFillRectangle(dpy, window, gc, x, y, (unsigned)w, (unsigned)h);
   draw_bevel(window, gc, x, y, w, h, !pressed);
   XSetForeground(dpy, gc, C_BLACK);
-  XDrawLine(dpy, window, gc, x + 5, y + 6, x + w / 2, y + 9); // 10 -> 9
-  XDrawLine(dpy, window, gc, x + w / 2, y + 9, x + w - 6, y + 6); // 10 -> 9
-  XDrawLine(dpy, window, gc, x + 5, y + 6, x + w - 6, y + 6); // b
+  XPoint vertices[] = {{x + 4, y + 6}, {x + w / 2, y + 10}, {x + w - 5, y + 6}};
+  XFillPolygon(dpy, window, gc, vertices, 3, Convex, CoordModeOrigin);
 }
 
 /* Upward triangle as a maximize button */
@@ -463,18 +462,15 @@ static void draw_max_button (Window window, GC gc, int x, int pressed, int maxim
   draw_bevel(window, gc, x, y, w, h, !pressed);
   XSetForeground(dpy, gc, C_BLACK);
   if (!maximized) {
-    XDrawLine(dpy, window, gc, x + 5, y + 9, x + w / 2, y + 6); // 5 -> 6
-    XDrawLine(dpy, window, gc, x + w / 2, y + 6, x + w - 6, y + 9); // 5 -> 6
-    XDrawLine(dpy, window, gc, x + 5, y + 9, x + w - 6, y + 9); // b
+    XPoint vertices[] = {{x + 3, y + 9}, {x + w / 2, y + 4}, {x + w - 4, y + 9}};
+    XFillPolygon(dpy, window, gc, vertices, 3, Convex, CoordModeOrigin);
   } else {
     /* upper triangle */
-    XDrawLine(dpy, window, gc, x + 5, y + 7, x + w / 2, y + 4); // 5 -> 6
-    XDrawLine(dpy, window, gc, x + w / 2, y + 4, x + w - 6, y + 7); // 5 -> 6
-    XDrawLine(dpy, window, gc, x + 5, y + 7, x + w - 6, y + 7); // b
+    XPoint uvertices[] = {{x + 3, y + 7}, {x + w / 2, y + 2}, {x + w - 4, y + 7}};
+    XFillPolygon(dpy, window, gc, uvertices, 3, Convex, CoordModeOrigin);
     /* lower triangle */
-    XDrawLine(dpy, window, gc, x + 5, y + 9, x + w / 2, y + 12); // 10 -> 9
-    XDrawLine(dpy, window, gc, x + w / 2, y + 12, x + w - 6, y + 9); // 10 -> 9
-    XDrawLine(dpy, window, gc, x + 5, y + 9, x + w - 6, y + 9); // b
+    XPoint lvertices[] = {{x + 4, y + 9}, {x + w / 2, y + 13}, {x + w - 5, y + 9}};
+    XFillPolygon(dpy, window, gc, lvertices, 3, Convex, CoordModeOrigin);
   }
 }
 
