@@ -85,7 +85,8 @@ typedef enum {
   DIALOG_BROWSE,
   DIALOG_MESSAGE,
   DIALOG_ABOUT,
-  DIALOG_DELETE
+  DIALOG_DELETE,
+  DIALOG_PROGRESS
 } DialogType;
 
 /* ================================================================ */
@@ -146,6 +147,12 @@ static int win_h = WIN_H;
 static int special_menu_open = 0;
 static int special_menu_separators = 1;
 
+/* Recursive operation state */
+static int operation_cancel = 0;
+static int operation_in_progress = 0;
+static char progress_action[32] = "";   /* "Copy", "Move", "Delete" */
+static int progress_processed = 0;      /* count of items touched */
+
 /* ================================================================ */
 /* Utility */
 /* ================================================================ */
@@ -172,6 +179,13 @@ static void get_home(char *out) {
   }
   strncpy(out, h, MAX_PATH - 1);
   out[MAX_PATH-1] = 0;
+}
+
+static void progress_dialog_rect(int *x, int *y, int *w, int *h) {
+  *w = 380;
+  *h = 140;
+  *x = (win_w - *w) / 2;
+  *y = (win_h - *h) / 2;
 }
 
 /* ================================================================ */
@@ -511,18 +525,6 @@ static void draw_file_menu(void) {
   }
 }
 
-static void draw_all(void) {
-  XClearWindow(dpy, win);
-  draw_menubar();
-  draw_drivebar();
-  /* draw_pathbar(); */
-  draw_filelist();
-  /* draw_statusbar(); */
-  draw_file_menu();
-  draw_special_menu();
-  XFlush(dpy);
-}
-
 /* ================================================================ */
 /* Dialog drawing & handling */
 /* ================================================================ */
@@ -531,12 +533,13 @@ static void draw_dialog(void) {
   int dw, dh;
   char dlg_title[32] = {0};
   switch (dlg_type) {
-  case DIALOG_INPUT:   dw = 460; dh = 120; strcat(dlg_title, "Input"); break;
+  case DIALOG_INPUT:    dw = 460; dh = 120; strcat(dlg_title, "Input"); break;
   case DIALOG_DELETE:
-  case DIALOG_CONFIRM: dw = 460; dh = 120; strcat(dlg_title, "Confirm"); break;
-  case DIALOG_BROWSE:  dw = 520; dh = 400; strcat(dlg_title, "Browse"); break;
-  case DIALOG_MESSAGE: dw = 400; dh = 110; strcat(dlg_title, "Message"); break;
-  case DIALOG_ABOUT:   dw = 400; dh = 240; strcat(dlg_title, "About"); break;
+  case DIALOG_CONFIRM:  dw = 460; dh = 120; strcat(dlg_title, "Confirm"); break;
+  case DIALOG_BROWSE:   dw = 520; dh = 400; strcat(dlg_title, "Browse"); break;
+  case DIALOG_MESSAGE:  dw = 400; dh = 110; strcat(dlg_title, "Message"); break;
+  case DIALOG_ABOUT:    dw = 400; dh = 240; strcat(dlg_title, "About"); break;
+  case DIALOG_PROGRESS: dw = 380; dh = 140; strcat(dlg_title, "Please wait"); break;
   default: return;
   }
   int dx = (win_w - dw) / 2;
@@ -636,10 +639,88 @@ static void draw_dialog(void) {
     int oktw = strlen("OK") * CHAR_W;
     set_fg(col_fg);
     draw_text(bx + (bw - oktw) / 2, by + 17, "OK", 0);
+  } else if (dlg_type == DIALOG_PROGRESS) {
+    char line[128];
+    snprintf(line, sizeof(line), "%s in progress...", progress_action);
+    draw_text(dx + 16, dy + 60, line, 0);
+    snprintf(line, sizeof(line), "Processed: %d", progress_processed);
+    draw_text(dx + 16, dy + 80, line, 0);
+    draw_text(dx + 16, dy + 100, "Click Cancel to stop.", 0);
+    /* Cancel button */
+    int bw = 90, bh = 26;
+    int bx = dx + dw - bw - 16;
+    int by = dy + dh - bh - 12;
+    fill_rect(bx, by, bw, bh, col_btn);
+    draw_rect(bx, by, bw, bh, col_btn_lo);
+    draw_rect(bx+1, by+1, bw-2, bh-2, col_btn_hi);
+    int tw = strlen("Cancel") * CHAR_W;
+    set_fg(col_fg);
+    draw_text(bx + (bw - tw) / 2, by + 17, "Cancel", 0);
   }
   XFlush(dpy);
 }
 
+static void draw_all(void) {
+  XClearWindow(dpy, win);
+  draw_menubar();
+  draw_drivebar();
+  draw_filelist();
+  draw_file_menu();
+  draw_special_menu();
+  if (dlg_type == DIALOG_PROGRESS) draw_dialog();
+  XFlush(dpy);
+}
+
+/* If Cancel, return 1, else 0 */
+static int pump_events(void) {
+  while (XPending(dpy)) {
+    XEvent e;
+    XNextEvent(dpy, &e);
+    if (e.type == Expose) {
+      if (e.xexpose.count == 0) draw_all();
+    } else if (e.type == ButtonPress) {
+      if (e.xbutton.button == 1 && dlg_type == DIALOG_PROGRESS) {
+        int px, py, pw, ph;
+        progress_dialog_rect(&px, &py, &pw, &ph);
+        int bw = 90, bh = 26;
+        int bx = px + pw - bw - 16;
+        int by = py + ph - bh - 12;
+        int mx = e.xbutton.x, my = e.xbutton.y;
+        if (mx >= bx && mx < bx + bw && my >= by && my < by + bh) {
+          operation_cancel = 1;
+          return 1;
+        }
+      }
+    } else if (e.type == KeyPress) {
+      KeySym k = XLookupKeysym(&e.xkey, 0);
+      if (k == XK_Escape) {
+        operation_cancel = 1;
+        return 1;
+      }
+    }
+  }
+  return operation_cancel;
+}
+
+static void begin_progress(const char *action) {
+  strncpy(progress_action, action, sizeof(progress_action)-1);
+  progress_action[sizeof(progress_action)-1] = 0;
+  progress_processed = 0;
+  operation_cancel = 0;
+  operation_in_progress = 1;
+  dlg_type = DIALOG_PROGRESS;
+  draw_all();
+}
+
+static void end_progress(void) {
+  operation_in_progress = 0;
+  dlg_type = DIALOG_NONE;
+  draw_all();
+}
+
+/* ================================================================ */
+/* File operations */
+/* ================================================================ */
 /* Load directory into browser */
 static void load_browse_dir(const char *path) {
   char real[MAX_PATH];
@@ -685,9 +766,6 @@ static void load_browse_dir(const char *path) {
   dlg_browse_top = 0;
 }
 
-/* ================================================================ */
-/* File operations */
-/* ================================================================ */
 static void do_copy_file(const char *src, const char *dst, int move, int *overwrite_all) {
   struct stat st;
   if (stat(src, &st) != 0) return;
@@ -747,36 +825,131 @@ static void do_copy_file(const char *src, const char *dst, int move, int *overwr
   }
 }
 
+static void copy_tree(const char *src, const char *dst, int move, int *overwrite_all) {
+  if (operation_cancel) return;
+  struct stat st;
+  if (stat(src, &st) != 0) return;
+  /* Not allow copying into itself or one of its own subdirs */
+  size_t sl = strlen(src);
+  if (strncmp(dst, src, sl) == 0 && (dst[sl] == '/' || dst[sl] == '\0')) {
+    set_status("Cannot copy %s into its own subdirectory", src);
+    return;
+  }
+  if (!S_ISDIR(st.st_mode)) {
+    /* Single file method for regular files */
+    do_copy_file(src, dst, move, overwrite_all);
+    progress_processed++;
+    if ((progress_processed % 16) == 0) pump_events();
+    return;
+  }
+  /* Create destination directory when needed */
+  struct stat dst_st;
+  if (stat(dst, &dst_st) != 0) {
+    if (mkdir(dst, st.st_mode & 0777) != 0) {
+      set_status("Cannot create %s: %s", dst, strerror(errno));
+      return;
+    }
+  } else if (!S_ISDIR(dst_st.st_mode)) {
+    set_status("Destination %s is not a directory", dst);
+    return;
+  }
+  DIR *d = opendir(src);
+  if (!d) {
+    set_status("Cannot open %s: %s", src, strerror(errno));
+    return;
+  }
+  struct dirent *de;
+  while ((de = readdir(d)) != NULL) {
+    if (operation_cancel) { closedir(d); return; }
+    if (strcmp(de->d_name, ".") == 0 || strcmp(de->d_name, "..") == 0)
+      continue;
+    char sfull[MAX_PATH], dfull[MAX_PATH];
+    snprintf(sfull, sizeof(sfull), "%s/%s", src, de->d_name);
+    snprintf(dfull, sizeof(dfull), "%s/%s", dst, de->d_name);
+    copy_tree(sfull, dfull, move, overwrite_all);
+  }
+  closedir(d);
+  if (move && !operation_cancel) {
+    if (rmdir(src) != 0)
+      set_status("Cannot remove %s: %s", src, strerror(errno));
+  }
+  progress_processed++;
+  if ((progress_processed % 16) == 0) pump_events();
+}
+
 static void do_copy_move_to(const char *destdir, int move) {
   int overwrite_all = 0;
   for (int i = 0; i < clip_nfiles; i++) {
+    if (operation_cancel) break;
     const char *src = clip_files[i];
     const char *base = strrchr(src, '/');
     base = base ? base + 1 : src;
     char dst[MAX_PATH];
     snprintf(dst, sizeof(dst), "%s/%s", destdir, base);
     if (strcmp(src, dst) == 0) continue;
-    do_copy_file(src, dst, move, &overwrite_all);
+    struct stat st;
+    if (stat(src, &st) != 0) continue;
+    if (S_ISDIR(st.st_mode)) {
+      copy_tree(src, dst, move, &overwrite_all);
+    } else {
+      do_copy_file(src, dst, move, &overwrite_all);
+      progress_processed++;
+    }
   }
   clip_nfiles = 0;
   load_dir(cwd);
-  set_status("%s complete.", move ? "Move" : "Copy");
+  if (operation_cancel)
+    set_status("%s cancelled.", move ? "Move" : "Copy");
+  else
+    set_status("%s complete.", move ? "Move" : "Copy");
+}
+
+static void remove_tree(const char *path) {
+  if (operation_cancel) return;
+  struct stat st;
+  if (lstat(path, &st) != 0) return;
+  if (!S_ISDIR(st.st_mode)) {
+    if (unlink(path) != 0)
+      set_status("Cannot delete %s: %s", path, strerror(errno));
+    progress_processed++;
+    if ((progress_processed % 16) == 0) pump_events();
+    return;
+  }
+  DIR *d = opendir(path);
+  if (!d) {
+    set_status("Cannot open %s: %s", path, strerror(errno));
+    return;
+  }
+  struct dirent *de;
+  while ((de = readdir(d)) != NULL) {
+    if (operation_cancel) { closedir(d); return; }
+    if (strcmp(de->d_name, ".") == 0 || strcmp(de->d_name, "..") == 0)
+      continue;
+    char full[MAX_PATH];
+    snprintf(full, sizeof(full), "%s/%s", path, de->d_name);
+    remove_tree(full);
+  }
+  closedir(d);
+  if (!operation_cancel) {
+    if (rmdir(path) != 0)
+      set_status("Cannot remove directory %s: %s", path, strerror(errno));
+  }
+  progress_processed++;
+  if ((progress_processed % 16) == 0) pump_events();
 }
 
 static void do_delete(void) {
   for (int i = sel_start; i <= sel_end && i < nfiles; i++) {
+    if (operation_cancel) break;
     char full[MAX_PATH];
     snprintf(full, sizeof(full), "%s/%s", cwd, files[i].name);
-    struct stat st;
-    if (stat(full, &st) != 0) continue;
-    if (S_ISDIR(st.st_mode)) {
-      if (rmdir(full) != 0)
-        set_status("Cannot remove directory: %s", strerror(errno));
-    } else {
-      unlink(full);
-    }
+    remove_tree(full);
   }
   load_dir(cwd);
+  if (operation_cancel)
+    set_status("Delete cancelled.");
+  else
+    set_status("Delete complete.");
 }
 
 static void do_rename(const char *newname) {
@@ -1011,8 +1184,11 @@ static void menu_action(int item) {
     load_browse_dir(cwd);
     dlg_type = DIALOG_BROWSE;
     dlg_result = -1;
-    if (run_input_dialog(buf, sizeof(buf)) == 1)
+    if (run_input_dialog(buf, sizeof(buf)) == 1) {
+      begin_progress(clip_is_move ? "Move" : "Copy");
       do_copy_move_to(buf, clip_is_move);
+      end_progress();
+    }
     break;
   case 3: // Rename
     if (sel_start != sel_end || sel_start >= nfiles) {
@@ -1027,8 +1203,11 @@ static void menu_action(int item) {
   case 4: // Delete
     if (sel_start >= nfiles) break;
     start_delete_dialog("Delete selected?");
-    if (run_input_dialog(buf, sizeof(buf)) == 1)
+    if (run_input_dialog(buf, sizeof(buf)) == 1) {
+      begin_progress("Delete");
       do_delete();
+      end_progress();
+    }
     break;
   case 5: // Create Subdirectory
     start_input_dialog("Name of new directory:", "");
@@ -1249,7 +1428,7 @@ int main(int argc, char **argv) {
             draw_all();
             continue; // done
           }
-          /* Clear the dropdown menu if the click outside menubar. */
+          /* Clear the dropdown menu if the click outside menubar */
           if (my >= MENUBAR_H) {
             special_menu_open = 0;
           }
