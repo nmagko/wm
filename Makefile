@@ -38,16 +38,21 @@ clean:
 
 install:
 	$(STRIP) wm
-	$(INSTALL) -o root -m 755 -v wm /usr/local/bin/
+	$(INSTALL) -o root -Dm 755 -v wm /usr/local/bin/
 	$(STRIP) win3wm
-	$(INSTALL) -o root -m 755 -v win3wm /usr/local/bin/
-	$(STRIP) gnuos
-	$(INSTALL) -o root -m 755 -v gnuos /usr/local/bin/
+	$(INSTALL) -o root -Dm 755 -v win3wm /usr/local/bin/
 	$(STRIP) win
-	$(INSTALL) -o root -m 755 -v win /usr/local/bin/
+	$(INSTALL) -o root -Dm 755 -v win /usr/local/bin/
+	$(STRIP) gnuos
+	$(INSTALL) -o root -Dm 755 -v gnuos /usr/local/bin/
+	$(INSTALL) -o root -Dm 644 -v desktop/gnuos.desktop /usr/local/share/applications/gnuos.desktop
+	$(INSTALL) -o root -Dm 644 -v icons/gnuos.svg /usr/local/share/icons/hicolor/scalable/apps/gnuos.svg
+	$(INSTALL) -o root -Dm 644 -v icons/gnuos.png /usr/local/share/icons/hicolor/48x48/apps/gnuos.png
 
 uninstall:
 	$(RM) -f /usr/local/bin/wm
 	$(RM) -f /usr/local/bin/win3wm
-	$(RM) -f /usr/local/bin/gnuos
 	$(RM) -f /usr/local/bin/win
+	$(RM) -f /usr/local/bin/gnuos
+	$(RM) -f /usr/local/share/icons/hicolor/scalable/apps/gnuos.svg
+	$(RM) -f /usr/local/share/icons/hicolor/48x48/apps/gnuos.png

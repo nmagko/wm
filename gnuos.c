@@ -317,12 +317,12 @@ static void draw_floppy_drive(int x, int y, int w, int h, int active) {
   /* slot */
   int sw = w * 80 / 100;
   int sx = x + (w - sw) / 2;
-  fill_rect(sx, y + h/2 - 1, sw, 2, active ? col_fg : col_bg);
+  fill_rect(sx, y + h/2 - 1, sw, 2, active ? col_fg : col_hi_fg);
   set_fg(active ? col_hi_fg : col_fg);
   XDrawRectangle(dpy, win, gc, sx, y + h/2 - 1, sw, 2);
   /* lock area */
-  fill_rect(x + w/2 - sw/4, y + h/2 - 2, sw/2, 4, active ? col_hi_fg : col_bg);
-  set_fg(active ? col_fg : col_fg);
+  fill_rect(x + w/2 - sw/4, y + h/2 - 2, sw/2, 4, active ? col_fg : col_hi_fg);
+  set_fg(active ? col_hi_fg : col_fg);
   XDrawRectangle(dpy, win, gc, x + w/2 - sw/4, y + h/2 - 2, sw/2, 4);
 }
 
@@ -336,12 +336,12 @@ static void draw_floppy(int x, int y, int w, int h, int active) {
   /* shutter */
   int sw = w * 40 / 100;
   int sx = x + (w - sw) / 2;
-  fill_rect(sx, y + 1, sw, h / 3, active ? col_fg : col_bg);
+  fill_rect(sx, y + 1, sw, h / 3, active ? col_fg : col_hi_fg);
   set_fg(active ? col_hi_fg : col_fg);
   XDrawRectangle(dpy, win, gc, sx, y + 1, sw-1, h/3 - 1);
   /* label */
-  fill_rect(x + 2, y + h/2, w - 4, h/2 - 3, active ? col_hi_fg : col_bg);
-  set_fg(active ? col_fg : col_fg);
+  fill_rect(x + 2, y + h/2, w - 4, h/2 - 3, active ? col_fg : col_hi_fg);
+  set_fg(active ? col_hi_fg : col_fg);
   XDrawRectangle(dpy, win, gc, x + 2, y + h/2, w - 5, h/2 - 4);
 }
 
@@ -1290,7 +1290,7 @@ int main(int argc, char **argv) {
   ALLOC(col_fg, 0x0000, 0x0000, 0x0000); // black
   /* ALLOC(col_hi_bg, 0x0000, 0x0000, 0x8000); // windows 3.1 dark blue */
   ALLOC(col_hi_bg, 0x5353, 0x7F7F, 0xADAD); // windows 3.0 blue
-  ALLOC(col_hi_fg, 0xFFFF, 0xFFFF, 0xFFFF);
+  ALLOC(col_hi_fg, 0xFFFF, 0xFFFF, 0xFFFF); // windows 3.0 white
   ALLOC(col_btn, 0xC0C0, 0xC0C0, 0xC0C0);
   ALLOC(col_btn_hi, 0xFFFF, 0xFFFF, 0xFFFF);
   ALLOC(col_btn_lo, 0x8080, 0x8080, 0x8080);

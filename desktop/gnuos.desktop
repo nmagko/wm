@@ -1,0 +1,11 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=GNUOS Executive
+GenericName=File Manager
+Comment=MS-DOS Executive clone for Linux
+Exec=gnuos
+Icon=gnuos
+Terminal=false
+Categories=System;FileTools;FileManager;
+StartupNotify=true
