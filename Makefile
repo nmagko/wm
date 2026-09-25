@@ -26,15 +26,17 @@ STRIP  = strip
 all:
 	$(CC) $(CFLAGS) -I$(PREFIX)/include -L$(PREFIX)/lib -o wm wm.c -lX11
 	$(CC) $(CFLAGS) -I$(PREFIX)/include -L$(PREFIX)/lib -o win3wm win3wm.c -lX11
-	$(CC) $(CFLAGS) $(EFLAGS) -I$(PREFIX)/include -L$(PREFIX)/lib -o gnuos gnuos.c -lX11
 	$(CC) $(CFLAGS) -I$(PREFIX)/include -L$(PREFIX)/lib -o win win.c
+	$(CC) $(CFLAGS) $(EFLAGS) -I$(PREFIX)/include -L$(PREFIX)/lib -o gnuos gnuos.c -lX11
+	$(CC) $(CFLAGS) $(EFLAGS) -I$(PREFIX)/include -L$(PREFIX)/lib -o progman progman.c -lX11 -lpng
 
 clean:
 	$(RM) -f *~
 	$(RM) -f wm
 	$(RM) -f win3wm
-	$(RM) -f gnuos
 	$(RM) -f win
+	$(RM) -f gnuos
+	$(RM) -f progman
 
 install:
 	$(STRIP) wm
@@ -48,6 +50,8 @@ install:
 	$(INSTALL) -o root -Dm 644 -v desktop/gnuos.desktop /usr/local/share/applications/gnuos.desktop
 	$(INSTALL) -o root -Dm 644 -v icons/gnuos.svg /usr/local/share/icons/hicolor/scalable/apps/gnuos.svg
 	$(INSTALL) -o root -Dm 644 -v icons/gnuos.png /usr/local/share/icons/hicolor/48x48/apps/gnuos.png
+	$(STRIP) progman
+	$(INSTALL) -o root -Dm 755 -v progman /usr/local/bin/
 
 uninstall:
 	$(RM) -f /usr/local/bin/wm
@@ -56,3 +60,4 @@ uninstall:
 	$(RM) -f /usr/local/bin/gnuos
 	$(RM) -f /usr/local/share/icons/hicolor/scalable/apps/gnuos.svg
 	$(RM) -f /usr/local/share/icons/hicolor/48x48/apps/gnuos.png
+	$(RM) -f /usr/local/bin/progman

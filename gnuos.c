@@ -1291,7 +1291,7 @@ int main(int argc, char **argv) {
   /* ALLOC(col_hi_bg, 0x0000, 0x0000, 0x8000); // windows 3.1 dark blue */
   ALLOC(col_hi_bg, 0x5353, 0x7F7F, 0xADAD); // windows 3.0 blue
   ALLOC(col_hi_fg, 0xFFFF, 0xFFFF, 0xFFFF); // windows 3.0 white
-  ALLOC(col_btn, 0xC0C0, 0xC0C0, 0xC0C0);
+  ALLOC(col_btn, 0xC0C0, 0xC4C4, 0xC8C8);
   ALLOC(col_btn_hi, 0xFFFF, 0xFFFF, 0xFFFF);
   ALLOC(col_btn_lo, 0x8080, 0x8080, 0x8080);
   ALLOC(col_menu_bg, 0xFFFF, 0xFFFF, 0xFFFF);

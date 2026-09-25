@@ -156,14 +156,16 @@ int main (int argc, char *argv[]) {
       }
     }
     ans = 'n';
-    while (ans != 'x' && ans != 'e') {
-      ans = 'x';
+    while (ans != 'p' && ans != 'x' && ans != 'e') {
+      ans = 'p';
       printf("\nProgram manager (CTRL+C=Exit)\n");
-      printf("Which one do you wanna use, (x)term or (e)macs? [%c] ", ans);
+      printf("Which one do you wanna use, (p)rogman, (x)term, or (e)macs? [%c] ", ans);
       ans = getchar();
       if (ans != '\n') while (getchar() != '\n');
-      if (ans == '\n') ans = 'x';
+      if (ans == '\n') ans = 'p';
     }
+    if (ans == 'p')
+      snprintf(manager, sizeof manager, "progman");
     if (ans == 'x')
       snprintf(manager, sizeof manager, "xterm");
     if (ans == 'e')

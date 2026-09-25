@@ -36,14 +36,12 @@
 /* ================================================================ */
 /* VGA palette */
 #define C_DESKTOP       0x00808080UL
-#define C_FACE          0x00C0C0C0UL
-#define C_TASKLIST      0x00D0D0D0UL
+#define C_FACE          0x00C0C4C8UL
+#define C_TASKLIST      0x00E4E4E5UL
 #define C_WHITE         0x00FFFFFFUL
 #define C_BLACK         0x00000000UL
 #define C_DARKGRAY      0x00808080UL
-/* #define C_ACTIVE_TITLE  0x00000080UL */
 #define C_ACTIVE_TITLE  0x00537FADUL
-/* #define C_INACTIVE      0x00808080UL */
 #define C_INACTIVE      0x00A6A6A6UL
 
 /* Compact geometry */
@@ -1009,10 +1007,6 @@ static void draw_resize_outline (void) {
   if (!resize_gc) {
     XGCValues gcv;
     memset(&gcv, 0, sizeof(gcv));
-    /* gcv.function = GXinvert; */
-    /* gcv.plane_mask = AllPlanes; */
-    /* gcv.subwindow_mode = IncludeInferiors; */
-    /* resize_gc = XCreateGC(dpy, root, GCFunction | GCPlaneMask | GCSubwindowMode, &gcv); */
     gcv.function = GXxor;
     gcv.foreground = C_DESKTOP ^ BlackPixel(dpy, screen);
     gcv.subwindow_mode = IncludeInferiors;
@@ -1050,7 +1044,7 @@ static void update_resize (int x_root, int y_root) {
   int bottom = resize_start_y + resize_start_h;
   if (!resizing || !resize_win) return;
 
-  draw_resize_outline();                 /* erase old XOR outline */
+  draw_resize_outline();
   dx = x_root - resize_start_x_root;
   dy = y_root - resize_start_y_root;
   x = resize_start_x; y = resize_start_y;

@@ -34,6 +34,8 @@ consumption.
 
   gnuos.c: Windows 3.0-style msdos executive clone
 
+  progman.c: Windows 3.0-style program manager clone
+
 ### Prerequisites
 
 Xorg, Xorg development packages, xterm, xrandr utility, and sysv-rc. The
@@ -181,7 +183,7 @@ win command options
   /N: enable only connected monitor N, make it primary, place it at 0x0,
   and turn all the other outputs off.
 
-### GNUOS Executive, minimal features (still in evaluation)
+### GNUOS Executive, minimal features
 
   Drive buttons auto-detected from df (ext4, ext3, vfat)
 
@@ -194,6 +196,18 @@ win command options
   Create/Rename use text input dialogs
 
   Delete/Overwrite use Yes/No/All confirmations
+
+### PROGMAN is a Program Manager clone
+
+  Alternative for handling menu applications inside windows
+
+  Program Group Extraction
+
+  MDI Group Windows
+
+  Window Menu Actions
+
+  Group Icons
 
 ### Screenshots
 
@@ -208,3 +222,6 @@ win command options
 
 **Windows 3.0-style gnuos executive**
 ![Alt About](img/gnuos.png)
+
+**Windows 3.0-style program manager**
+![Alt Progman](img/progman.png)
