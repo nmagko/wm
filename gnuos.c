@@ -38,6 +38,7 @@
 #include <X11/Xlib.h>
 #include <X11/Xutil.h>
 #include <X11/keysym.h>
+#include <X11/cursorfont.h>
 #include "wmver.h"
 
 /* ================================================================ */
@@ -93,51 +94,52 @@ typedef enum {
 /* Globals */
 /* ================================================================ */
 static Display *dpy;
-static int      scr;
-static Window   win;
-static GC       gc;
+static int scr;
+static Window root;
+static Window win;
+static GC gc;
 static XFontStruct *font, *font_bold;
 static Colormap cmap;
 static unsigned long col_bg, col_fg, col_hi_bg, col_hi_fg, col_btn,
   col_btn_hi, col_btn_lo, col_menu_bg, col_path_bg, col_dlg_bg;
 
-static Drive     drives[MAX_DRIVES];
-static int       ndrives = 0;
-static int       cur_drive = 0;
-static char      cwd[MAX_PATH];
-static char      path_history[MAX_PATH];
+static Drive drives[MAX_DRIVES];
+static int ndrives = 0;
+static int cur_drive = 0;
+static char cwd[MAX_PATH];
+static char path_history[MAX_PATH];
 
 static FileEntry files[MAX_FILES];
-static int       nfiles = 0;
-static int       sel_start = 0, sel_end = 0; // multiple selection range
-static int       drag_anchor = -1;
-static int       top_index = 0; // scroll offset
-static int       short_view = 1;
+static int nfiles = 0;
+static int sel_start = 0, sel_end = 0; // multiple selection range
+static int drag_anchor = -1;
+static int top_index = 0; // scroll offset
+static int short_view = 1;
 
 /* menu state */
-static int       menu_open = 0;
-static int       menu_item = -1;
+static int menu_open = 0;
+static int menu_item = -1;
 
 /* dialog state */
 static DialogType dlg_type = DIALOG_NONE;
-static char       dlg_prompt[512];
-static char       dlg_input[MAX_PATH];
-static int        dlg_input_pos = 0;
-static int        dlg_result = -1; // Dialog Yes/No question answer: -1 pending, 0 no, 1 yes, 2 all
-static char       dlg_browse_path[MAX_PATH];
-static FileEntry  dlg_browse_files[MAX_FILES];
-static int        dlg_browse_nfiles = 0;
-static int        dlg_browse_sel = 0;
-static int        dlg_browse_top = 0;
+static char dlg_prompt[512];
+static char dlg_input[MAX_PATH];
+static int dlg_input_pos = 0;
+static int dlg_result = -1; // Dialog Yes/No question answer: -1 pending, 0 no, 1 yes, 2 all
+static char dlg_browse_path[MAX_PATH];
+static FileEntry dlg_browse_files[MAX_FILES];
+static int dlg_browse_nfiles = 0;
+static int dlg_browse_sel = 0;
+static int dlg_browse_top = 0;
 
 /* clipboard for copy/move */
-static char       clip_files[256][MAX_PATH];
-static int        clip_nfiles = 0;
-static int        clip_is_move = 0;
+static char clip_files[256][MAX_PATH];
+static int clip_nfiles = 0;
+static int clip_is_move = 0;
 
 /* feedback message */
-static char       status_msg[256] = "";
-static time_t     status_time = 0;
+static char status_msg[256] = "";
+static time_t status_time = 0;
 
 /* Track the actual window size */
 static int win_w = WIN_W;
@@ -150,8 +152,8 @@ static int special_menu_separators = 1;
 /* Recursive operation state */
 static int operation_cancel = 0;
 static int operation_in_progress = 0;
-static char progress_action[32] = "";   /* "Copy", "Move", "Delete" */
-static int progress_processed = 0;      /* count of items touched */
+static char progress_action[32] = ""; // "Copy", "Move", "Delete"
+static int progress_processed = 0; // count of items touched
 
 /* ================================================================ */
 /* Utility */
@@ -1282,7 +1284,7 @@ int main(int argc, char **argv) {
     return 1;
   }
   scr = DefaultScreen(dpy);
-
+  root = RootWindow(dpy, scr);
   /* Colors */
   cmap = DefaultColormap(dpy, scr);
   XColor c;
@@ -1306,7 +1308,19 @@ int main(int argc, char **argv) {
   if (!font_bold) font_bold = XLoadQueryFont(dpy, "-*-fixed-bold-r-normal--*-*-*-*-*-iso8859-1");
   if (!font_bold) font_bold = font;
 
-  win = XCreateSimpleWindow(dpy, RootWindow(dpy, scr), 0, 0, WIN_W, WIN_H, 1, col_fg, col_bg);
+  XWindowAttributes root_attrs;
+  int init_x = 0, init_y = 0;
+  if (XGetWindowAttributes(dpy, root, &root_attrs)) {
+    init_x = (root_attrs.width  - WIN_W) / 2 + MENUBAR_H / 2;
+    init_y = (root_attrs.height - WIN_H) / 2 + MENUBAR_H / 2;
+    if (init_x < 0) init_x = 0;
+    if (init_y < 0) init_y = 0;
+  }
+  win = XCreateSimpleWindow(dpy, root, init_x, init_y, WIN_W, WIN_H, 1, col_fg, col_bg);
+  {
+    Cursor cursor = XCreateFontCursor(dpy, XC_left_ptr);
+    XDefineCursor(dpy, win, cursor);
+  }
   XStoreName(dpy, win, "GNUOS Executive");
   XSelectInput(dpy, win, ExposureMask | KeyPressMask | ButtonPressMask | ButtonReleaseMask | StructureNotifyMask);
   XMapWindow(dpy, win);

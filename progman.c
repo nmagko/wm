@@ -16,6 +16,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
  * Compile: gcc -O2 -o progman progman.c -lX11
+ *
  */
 
 #define _GNU_SOURCE
@@ -32,6 +33,8 @@
 #include <X11/Xlib.h>
 #include <X11/Xutil.h>
 #include <X11/keysym.h>
+#include <X11/Xatom.h>
+#include <X11/cursorfont.h>
 #include <png.h>
 #include <signal.h>
 #include "wmver.h"
@@ -127,9 +130,59 @@ static Atom wm_delete_window = None;
 
 static volatile sig_atomic_t got_terminate_signal = 0;
 
+/* ================================================================ */
+/* System events */
+/* ================================================================ */
 static void on_terminate_signal(int sig) {
   (void)sig;
   got_terminate_signal = 1;
+}
+
+/* shell behavior, wait till window manager is ready */
+static int wait_for_window_manager(int max_milliseconds) {
+  Atom check_atom = XInternAtom(dpy, "_NET_SUPPORTING_WM_CHECK", False);
+  if (check_atom == None) return 0; // for older servers does nothing
+  Atom actual_type;
+  int actual_format;
+  unsigned long nitems, bytes_after;
+  unsigned char *prop = NULL;
+  int waited = 0;
+  while (waited < max_milliseconds) {
+    /* Check if the property exists */
+    if (XGetWindowProperty(dpy, root, check_atom, 0, 1, False, XA_WINDOW,
+                           &actual_type, &actual_format, &nitems,
+                           &bytes_after, &prop) == Success && prop != NULL) {
+      XFree(prop);
+      prop = NULL;
+      if (actual_type == XA_WINDOW && nitems == 1) {
+        /* Verify the window references itself */
+        Window wm_check_win = 0;
+        unsigned char *prop2 = NULL;
+        if (XGetWindowProperty(dpy, root, check_atom, 0, 1, False, XA_WINDOW,
+                               &actual_type, &actual_format, &nitems,
+                               &bytes_after, &prop2) == Success && prop2) {
+          wm_check_win = *(Window *)prop2;
+          XFree(prop2);
+        }
+        if (wm_check_win) {
+          unsigned char *prop3 = NULL;
+          if (XGetWindowProperty(dpy, wm_check_win, check_atom, 0, 1, False,
+                                 XA_WINDOW, &actual_type, &actual_format,
+                                 &nitems, &bytes_after, &prop3) == Success
+              && prop3) {
+            Window self_ref = *(Window *)prop3;
+            XFree(prop3);
+            if (self_ref == wm_check_win) return 1;
+          }
+        }
+      }
+    }
+    /* Flush any pending events */
+    XSync(dpy, False);
+    usleep(50 * 1000);   /* 50 ms */
+    waited += 50;
+  }
+  return 0;
 }
 
 /* ================================================================ */
@@ -1220,6 +1273,7 @@ int main(int argc, char **argv) {
   signal(SIGHUP,  on_terminate_signal);
   scr = DefaultScreen(dpy);
   root = RootWindow(dpy, scr);
+  wait_for_window_manager(5000);
   cmap = DefaultColormap(dpy, scr);
   XColor c;
 
@@ -1237,14 +1291,25 @@ int main(int argc, char **argv) {
   font = XLoadQueryFont(dpy, "-*-fixed-medium-r-normal--14-*-*-*-*-*-iso8859-1");
   if (!font) font = XLoadQueryFont(dpy, "fixed");
 
-  win = XCreateSimpleWindow(dpy, root, 0, 0, DEF_WIN_W, DEF_WIN_H, 0, col_black, col_yellow);
+  /* Compute centered position on the screen. */
+  XWindowAttributes root_attrs;
+  int init_x = 0, init_y = 0;
+  if (XGetWindowAttributes(dpy, root, &root_attrs)) {
+    init_x = (root_attrs.width  - DEF_WIN_W) / 2 - MENUBAR_H / 2;
+    init_y = (root_attrs.height - DEF_WIN_H) / 2 - MENUBAR_H / 2;
+    if (init_x < 0) init_x = 0;
+    if (init_y < 0) init_y = 0;
+  }
+  win = XCreateSimpleWindow(dpy, root, init_x, init_y, DEF_WIN_W, DEF_WIN_H, 0, col_black, col_yellow);
   progman_draw_target = win;
+  {
+    Cursor cursor = XCreateFontCursor(dpy, XC_left_ptr);
+    XDefineCursor(dpy, win, cursor);
+  }
   XStoreName(dpy, TARGET, "Program Manager");
   XSelectInput(dpy, TARGET, ExposureMask | KeyPressMask | ButtonPressMask | ButtonReleaseMask | PointerMotionMask | StructureNotifyMask);
-  XMapWindow(dpy, win);
   wm_delete_window = XInternAtom(dpy, "WM_DELETE_WINDOW", False);
   XSetWMProtocols(dpy, win, &wm_delete_window, 1);
-
   gc = XCreateGC(dpy, TARGET, 0, NULL);
   XSetFont(dpy, gc, font->fid);
 
@@ -1258,7 +1323,6 @@ int main(int argc, char **argv) {
   int ws_h = win_h - MENUBAR_H;
   int def_w = (ws_w * 2) / 3;
   int def_h = (ws_h * 2) / 3;
-
   for (int i = 0; i < n_groups; i++) {
     groups[i].x = ws_x;
     groups[i].y = ws_y;
@@ -1280,7 +1344,6 @@ int main(int argc, char **argv) {
     }
   }
   if (main_idx == -1 && n_groups > 0) main_idx = 0;
-
   for (int i = 0; i < n_groups; i++) {
     groups[i].state = (i == main_idx) ? STATE_NORMAL : STATE_MINIMIZED;
   }
@@ -1291,6 +1354,8 @@ int main(int argc, char **argv) {
   } else {
     active_group = -1;
   }
+
+  XMapWindow(dpy, win);
 
   /* Main loop */
   for (;;) {

@@ -1825,6 +1825,23 @@ int main (int argc, char **argv) {
     if (children) XFree(children);
   }
 
+  /* EWMH compliance so clients can detect when the WM is ready */
+  {
+    Window wm_check = XCreateSimpleWindow(dpy, root, -100, -100, 1, 1, 0,
+                                          CopyFromParent, CopyFromParent);
+    Atom check_atom = XInternAtom(dpy, "_NET_SUPPORTING_WM_CHECK", False);
+    Atom utf8_atom  = XInternAtom(dpy, "UTF8_STRING", False);
+    Atom wm_name_atom = XInternAtom(dpy, "_NET_WM_NAME", False);
+    const char *wm_name = "win3wm";
+    XChangeProperty(dpy, root, check_atom, XA_WINDOW, 32, PropModeReplace,
+                    (unsigned char *)&wm_check, 1);
+    XChangeProperty(dpy, wm_check, check_atom, XA_WINDOW, 32, PropModeReplace,
+                    (unsigned char *)&wm_check, 1);
+    XChangeProperty(dpy, wm_check, wm_name_atom, utf8_atom, 8, PropModeReplace,
+                    (unsigned char *)wm_name, strlen(wm_name));
+    XFlush(dpy);
+  }
+
   event_loop();
   return EXIT_SUCCESS;
 }
