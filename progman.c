@@ -78,9 +78,10 @@
 typedef struct {
   char name[MAX_NAME];
   char exec[MAX_PATH];
-  char icon[MAX_NAME]; // Icon= value from the .desktop file
-  Pixmap icon_pixmap; // Loaded icon, or None
-  int    icon_w; // Loaded icon dimensions (may be 0)
+  char icon[MAX_NAME];
+  int terminal; // 1 true, 0 false
+  Pixmap icon_pixmap;
+  int    icon_w;
   int    icon_h;
 } App;
 
@@ -224,7 +225,7 @@ static void fit_text(char *out, const char *in, int max_pixels) {
     strcpy(out, in);
     return;
   }
-  /* Trim one char at a time until the text with "..." fits. */
+  /* trim one char at a time til "..." fits */
   while (len > 3) {
     len--;
     char tmp[256];
@@ -269,6 +270,7 @@ static void scan_applications(void) {
       char icon[MAX_NAME] = "";
       char categories[256] = "";
       int in_entry = 0;
+      int terminal_flag = 0;
 
       while (fgets(line, sizeof(line), fp)) {
         line[strcspn(line, "\n")] = 0;
@@ -286,6 +288,8 @@ static void scan_applications(void) {
           strncpy(icon, line + 5, MAX_NAME - 1);
         } else if (strncmp(line, "Categories=", 11) == 0) {
           strncpy(categories, line + 11, sizeof(categories) - 1);
+        } else if (strncmp(line, "Terminal=", 9) == 0) {
+          terminal_flag = (strcasecmp(line + 9, "true") == 0);
         }
       }
       fclose(fp);
@@ -321,6 +325,7 @@ static void scan_applications(void) {
         strncpy(a->name, name, MAX_NAME - 1);
         strncpy(a->exec, exec, MAX_PATH - 1);
         strncpy(a->icon, icon, MAX_NAME - 1);
+        a->terminal = terminal_flag;
         a->icon_pixmap = None;
         a->icon_w = 0;
         a->icon_h = 0;
@@ -984,7 +989,7 @@ static int build_exec_argv(const char *exec_line, char *argv[], int max_args) {
       }
     }
     buf[bi] = 0;
-    /* Drop field codes like %F, %U, %f, %u, %i, %c, %k, etc. */
+    /* drop field codes %F, %U, %f, %u, %i, %c, %k, ... */
     if (bi >= 2 && buf[0] == '%') {
       continue;
     }
@@ -1059,9 +1064,21 @@ static void tile_groups(void) {
 
 static void launch_app(Group *g, int idx) {
   if (idx < 0 || idx >= g->n_apps) return;
+  App *app = &g->apps[idx];
   char *argv[64];
   int argc = build_exec_argv(g->apps[idx].exec, argv, 64);
-  if (argc == 0) return;   /* nothing to run */
+  if (argc == 0) return; // nothing to run
+  /* If it is a terminal application */
+  if (app->terminal) {
+    // shifting the existing arguments
+    for (int i = argc; i >= 0; i--) {
+      argv[i + 2] = argv[i];
+    }
+    // inserting the terminal command
+    argv[0] = strdup("x-terminal-emulator");
+    argv[1] = strdup("-e");
+    argc += 2;
+  }
   /* double-fork to avoid zombies */
   pid_t pid = fork();
   if (pid < 0) {
@@ -1069,7 +1086,7 @@ static void launch_app(Group *g, int idx) {
     return;
   }
   if (pid > 0) {
-    /* reap the intermediate child right away */
+    /* reap the intermediate child */
     waitpid(pid, NULL, 0);
     free_exec_argv(argv, argc);
     return;
@@ -1364,7 +1381,7 @@ int main(int argc, char **argv) {
   font = XLoadQueryFont(dpy, "-*-fixed-medium-r-normal--14-*-*-*-*-*-iso8859-1");
   if (!font) font = XLoadQueryFont(dpy, "fixed");
 
-  /* Compute centered position on the screen. */
+  /* compute centered position on the screen */
   XWindowAttributes root_attrs;
   int init_x = 0, init_y = 0;
   if (XGetWindowAttributes(dpy, root, &root_attrs)) {
