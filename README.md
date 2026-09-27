@@ -11,15 +11,10 @@ too many features; in my experience, features that I've never used.
 
 ### Extra context
 
-I made this software in 2018, and the idea was to use xterm or emacs as
-a program manager; currently, I use emacs as the program manager. I've
-decided to code a program manager for the Windows 3.0-style version,
-respecting the essence of the Windows 3.0 program manager. It's probably
-going to take some time. I will code it in my free time. And in the
-future, perhaps I'm going to include an OS/2 2.11 style because it is
-very similar to the Windows 3.0 style, object distribution, and
-behavior. And always minimalistic, keeping the goal of low resource
-consumption.
+I made this software in 2018, and the idea was to use xterm or Emacs as
+a program manager. Now it includes a program manager for the Windows
+3.0-style version, respecting the essence of the Windows 3.0 program
+manager.
 
 ### Files
 
@@ -105,7 +100,7 @@ startx
 
 The win program will set up your .xinitrc the first time. If it detects
 multiple monitors, it will ask which mode to use them in, and after that
-will allow you to choose the program manager (xterm / emacs).
+will allow you to choose the program manager (progman / xterm / emacs).
 
 Run as:
 
@@ -139,12 +134,13 @@ In the example above, if you input 2, then it will use the second
 monitor (which can be the external) and will power off the first monitor
 (that can be the integrated laptop screen).
 
-After that, it will ask which program manager to use; by default, xterm
-if you press Enter or input x; if you input e, it will use emacs.
+After that, it will ask which program manager to use; by default,
+progman if you press Enter or input p; if you input x, it will use
+xterm; if you input e, it will use emacs.
 
 ```sh
 Program manager (CTRL+C=Exit)
-Which one do you wanna use, (x)term or (e)macs? [x]
+Which one do you wanna use, (p)rogman, (x)term, or (e)macs? [p]
 ```
 
 win command options
