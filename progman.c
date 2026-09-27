@@ -30,6 +30,8 @@
 #include <ctype.h>
 #include <time.h>
 #include <sys/stat.h>
+#include <sys/wait.h>
+#include <sys/types.h>
 #include <X11/Xlib.h>
 #include <X11/Xutil.h>
 #include <X11/keysym.h>
@@ -948,6 +950,58 @@ static void draw_dropdown(void) {
 }
 
 /* ================================================================ */
+/* Helpers */
+/* ================================================================ */
+
+/* Split a desktop Exec= line into argv dropping any token with '%' */
+static int build_exec_argv(const char *exec_line, char *argv[], int max_args) {
+  int argc = 0;
+  const char *p = exec_line;
+  static char buf[MAX_PATH * 2];
+  int bi = 0;
+  while (*p && argc < max_args - 1) {
+    /* Skip leading whitespace */
+    while (*p == ' ' || *p == '\t') p++;
+    if (!*p) break;
+    /* Read one token */
+    bi = 0;
+    while (*p && *p != ' ' && *p != '\t') {
+      if (*p == '"') {
+        p++;
+        while (*p && *p != '"') {
+          if (*p == '\\' && p[1]) p++;
+          if (bi < (int)sizeof(buf) - 1) buf[bi++] = *p;
+          p++;
+        }
+        if (*p == '"') p++;
+      } else if (*p == '\\' && p[1]) {
+        p++;
+        if (bi < (int)sizeof(buf) - 1) buf[bi++] = *p;
+        p++;
+      } else {
+        if (bi < (int)sizeof(buf) - 1) buf[bi++] = *p;
+        p++;
+      }
+    }
+    buf[bi] = 0;
+    /* Drop field codes like %F, %U, %f, %u, %i, %c, %k, etc. */
+    if (bi >= 2 && buf[0] == '%') {
+      continue;
+    }
+    /* Keep this token */
+    argv[argc] = strdup(buf);
+    if (!argv[argc]) break;
+    argc++;
+  }
+  argv[argc] = NULL;
+  return argc;
+}
+
+static void free_exec_argv(char *argv[], int argc) {
+  for (int i = 0; i < argc; i++) free(argv[i]);
+}
+
+/* ================================================================ */
 /* Actions */
 /* ================================================================ */
 static void cascade_groups(void) {
@@ -1005,10 +1059,29 @@ static void tile_groups(void) {
 
 static void launch_app(Group *g, int idx) {
   if (idx < 0 || idx >= g->n_apps) return;
-  if (fork() == 0) {
-    execlp("/bin/sh", "sh", "-c", g->apps[idx].exec, (char*)NULL);
-    _exit(127);
+  char *argv[64];
+  int argc = build_exec_argv(g->apps[idx].exec, argv, 64);
+  if (argc == 0) return;   /* nothing to run */
+  /* double-fork to avoid zombies */
+  pid_t pid = fork();
+  if (pid < 0) {
+    free_exec_argv(argv, argc);
+    return;
   }
+  if (pid > 0) {
+    /* reap the intermediate child right away */
+    waitpid(pid, NULL, 0);
+    free_exec_argv(argv, argc);
+    return;
+  }
+  pid_t pid2 = fork();
+  if (pid2 < 0) _exit(127);
+  if (pid2 > 0) _exit(0);
+  /* detach, close stdio, exec */
+  setsid();
+  execvp(argv[0], argv);
+  /* execvp failed */
+  _exit(127);
 }
 
 /* Bring a group to the front by rotating it to the end of the array */
