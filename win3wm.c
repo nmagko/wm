@@ -38,7 +38,6 @@
 /* VGA palette */
 #define C_DESKTOP       0x00808080UL
 #define C_FACE          0x00C0C4C8UL
-#define C_TASKLIST      0x00E4E4E5UL
 #define C_WHITE         0x00FFFFFFUL
 #define C_BLACK         0x00000000UL
 #define C_DARKGRAY      0x00808080UL
@@ -70,7 +69,7 @@
 #define TASK_W            330
 #define TASK_H            250
 #define TASK_MARGIN        10
-#define TASK_LIST_Y        28
+#define TASK_LIST_Y        30 // 28
 #define TASK_LIST_H       132
 #define TASK_ROW_H         14
 #define TASK_BTN_W         98 // 92
@@ -1332,22 +1331,34 @@ static void draw_task_list (void) {
   }
 
   gc = XCreateGC(dpy, task_win, 0, NULL);
-  XSetForeground(dpy, gc, C_TASKLIST); // C_FACE
+
+  /* border */
+  XSetForeground(dpy, gc, C_BLACK);
   XFillRectangle(dpy, task_win, gc, 0, 0, TASK_W, TASK_H);
-  XSetForeground(dpy, gc, C_BLACK);
-  XDrawRectangle(dpy, task_win, gc, 0, 0, TASK_W - 1, TASK_H - 1);
-  draw_bevel(task_win, gc, 1, 1, TASK_W - 2, TASK_H - 2, 1);
-
-  if (font_info) XSetFont(dpy, gc, font_info->fid);
-  XSetForeground(dpy, gc, C_BLACK);
-  XDrawString(dpy, task_win, gc, TASK_MARGIN, 18, "Task List", 9);
-
+  XSetForeground(dpy, gc, C_ACTIVE_TITLE);
+  XFillRectangle(dpy, task_win, gc, 1, 1, TASK_W - 2, TASK_H - 2);
   XSetForeground(dpy, gc, C_WHITE);
-  XFillRectangle(dpy, task_win, gc, TASK_MARGIN, TASK_LIST_Y,
-                 TASK_W - 2 * TASK_MARGIN, TASK_LIST_H);
+  XFillRectangle(dpy, task_win, gc, 4, 4, TASK_W - 8, TASK_H - 8);
+
+  /* control box */
+  XSetForeground(dpy, gc, C_ACTIVE_TITLE);
+  XFillRectangle(dpy, task_win, gc, 5, 5, TASK_W - 10, 20);
+  XSetForeground(dpy, gc, C_FACE);
+  XFillRectangle(dpy, task_win, gc, 8, 7, CTRL_W - 2, CTRL_H - 2);
+  draw_bevel(task_win, gc, 8, 7, CTRL_W - 2, CTRL_H - 2, 1);
   XSetForeground(dpy, gc, C_BLACK);
-  XDrawRectangle(dpy, task_win, gc, TASK_MARGIN, TASK_LIST_Y,
-                 TASK_W - 2 * TASK_MARGIN - 1, TASK_LIST_H - 1);
+  XDrawRectangle(dpy, task_win, gc, 8 + 4, 7 + 6, 8, 2);
+
+  /* title */
+  if (font_info) XSetFont(dpy, gc, font_info->fid);
+  XSetForeground(dpy, gc, C_WHITE);
+  XDrawString(dpy, task_win, gc, TASK_MARGIN + CTRL_W + 6, 18, "Task List", 9);
+
+  /* list of apps */
+  XSetForeground(dpy, gc, C_WHITE);
+  XFillRectangle(dpy, task_win, gc, TASK_MARGIN, TASK_LIST_Y, TASK_W - 2 * TASK_MARGIN, TASK_LIST_H);
+  XSetForeground(dpy, gc, C_BLACK);
+  XDrawRectangle(dpy, task_win, gc, TASK_MARGIN, TASK_LIST_Y, TASK_W - 2 * TASK_MARGIN - 1, TASK_LIST_H - 1);
 
   visible = n - task_top;
   if (visible > rows) visible = rows;
@@ -1372,6 +1383,7 @@ static void draw_task_list (void) {
     if (len) XDrawString(dpy, task_win, gc, TASK_MARGIN + 4, baseline, w->title, len);
   }
 
+  /* buttons */
   draw_task_button(gc, TASK_MARGIN, 169, "Switch To");
   draw_task_button(gc, TASK_MARGIN + TASK_BTN_W + TASK_GAP, 169, "End Task");
   draw_task_button(gc, TASK_MARGIN + 2 * (TASK_BTN_W + TASK_GAP), 169, "Cancel");
