@@ -170,7 +170,7 @@ int main (int argc, char *argv[]) {
       snprintf(manager, sizeof manager, "xterm");
     if (ans == 'e')
       snprintf(manager, sizeof manager, "emacs");
-    snprintf(xinitcontent, sizeof xinitcontent, "/usr/local/bin/win3wm %s &\nexec %s\n", monitor, manager);
+    snprintf(xinitcontent, sizeof xinitcontent, "printf 'Xcursor.theme: Whiteglass\\n' | xrdb -merge -\n/usr/local/bin/win3wm %s &\nexec %s\n", monitor, manager);
     printf("Initializing...");
     FILE *file = fopen(winrc, "w");
     if (!file) {

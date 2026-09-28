@@ -25,6 +25,7 @@
 #include <string.h>
 #include <X11/Xlib.h>
 #include <X11/Xatom.h>
+#include <X11/cursorfont.h>
 #include "wmver.h"
 
 /* ================================================================ */
@@ -35,6 +36,11 @@
 #define C_BORDER  0x00537FADUL // pastel blue
 
 #define MAX(a, b) ((a) > (b) ? (a) : (b))
+
+/* ================================================================ */
+/* Globals */
+/* ================================================================ */
+static Cursor root_cursor = None;
 
 /* ================================================================ */
 /* X basic-style objects' handling */
@@ -71,6 +77,7 @@ static void wmWindowsBorder (Display *dpy, Window root, unsigned int brdw, unsig
       /*          InputOutput ); */
       XSetWindowBorder(dpy, wins[i], brdc);
       XSetWindowBorderWidth(dpy, wins[i], brdw);
+      XDefineCursor(dpy, wins[i], root_cursor);
     }
   }
 
@@ -96,6 +103,9 @@ int main (void) {
 
   screen = DefaultScreen(dpy);
   root = RootWindow(dpy, screen);
+  root_cursor = XCreateFontCursor(dpy, XC_left_ptr);
+  XDefineCursor(dpy, root, root_cursor);
+  XFlush(dpy);
 
   sattr.border_pixel = 200;
   sattr.event_mask = SubstructureNotifyMask | StructureNotifyMask;

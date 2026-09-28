@@ -29,6 +29,7 @@
 #include <X11/Xlib.h>
 #include <X11/Xutil.h>
 #include <X11/keysym.h>
+#include <X11/cursorfont.h>
 #include "wmver.h"
 
 /* ================================================================ */
@@ -123,11 +124,11 @@ static Atom wm_protocols_atom;
 static Atom wm_state_atom;
 static Win3Window *windows;
 static Win3Window *active_win;
-
 static Win3Window *drag_win;
 static int dragging;
 static int drag_start_x_root, drag_start_y_root;
 static int drag_frame_x, drag_frame_y;
+static Cursor root_cursor = None;
 
 /* Border resizing */
 static Win3Window *resize_win;
@@ -694,6 +695,7 @@ static void ensure_icon_window (Win3Window *w) {
   w->iconwin = XCreateWindow(dpy, root, 0, 0, ICON_CELL_W, ICON_CELL_H, 0,
                              CopyFromParent, InputOutput, CopyFromParent,
                              CWOverrideRedirect | CWBackPixel | CWEventMask, &ia);
+  XDefineCursor(dpy, w->iconwin, root_cursor);
 }
 
 static void restore_from_icon (Win3Window *w) {
@@ -839,7 +841,7 @@ static Win3Window *manage (Window client) {
                            (unsigned)frame_width(w), (unsigned)frame_height(w),
                            0, CopyFromParent, InputOutput, CopyFromParent,
                            CWOverrideRedirect | CWBackPixel | CWEventMask, &fa);
-
+  XDefineCursor(dpy, w->frame, root_cursor);
   memset(&ta, 0, sizeof(ta));
   ta.background_pixel = C_ACTIVE_TITLE;
   ta.event_mask = ExposureMask | ButtonPressMask | ButtonReleaseMask |
@@ -848,7 +850,7 @@ static Win3Window *manage (Window client) {
                               (unsigned)(frame_width(w) - 2 * FRAME_EDGE),
                               TITLE_H, 0, CopyFromParent, InputOutput,
                               CopyFromParent, CWBackPixel | CWEventMask, &ta);
-
+  XDefineCursor(dpy, w->titlebar, root_cursor);
   XSelectInput(dpy, client, PropertyChangeMask | StructureNotifyMask |
                FocusChangeMask);
   /* Clean the client up if it vanished while manage() was being assembled */
@@ -1408,6 +1410,7 @@ static void show_task_list (void) {
                              (ra.height - TASK_H) / 2, TASK_W, TASK_H, 0,
                              CopyFromParent, InputOutput, CopyFromParent,
                              CWOverrideRedirect | CWBackPixel | CWEventMask, &a);
+    XDefineCursor(dpy, task_win, root_cursor);
   } else {
     XMoveWindow(dpy, task_win, (ra.width - TASK_W) / 2, (ra.height - TASK_H) / 2);
   }
@@ -1785,6 +1788,9 @@ int main (int argc, char **argv) {
   if (!dpy) return EXIT_FAILURE;
   screen = DefaultScreen(dpy);
   root = RootWindow(dpy, screen);
+  root_cursor = XCreateFontCursor(dpy, XC_left_ptr);
+  XDefineCursor(dpy, root, root_cursor);
+  XFlush(dpy);
 
   if (argc > 2 || (argc == 2 && !configure_monitors(argv[1]))) {
     XCloseDisplay(dpy);
