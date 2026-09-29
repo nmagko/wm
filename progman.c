@@ -810,7 +810,7 @@ static void draw_group_content(Group *g) {
 static void draw_group_title(Group *g) {
   int is_active = (active_group >= 0 && g == &groups[active_group]);
   int tx = g->x + 2 + 1;
-  int ty = g->y + 2 + 1;
+  int ty = g->y + 2;
   int tw = g->w - 4 - 2;
   int th = TITLEBAR_H;
 
@@ -818,7 +818,7 @@ static void draw_group_title(Group *g) {
 
   /* Compute available width for title text */
   int left_w = 20; // control menu box
-  int right_w = 2 * (15 + 2) + 4; // two buttons + gaps + margin
+  int right_w = 2 * (16 + 2) + 4; // two buttons + gaps + margin
   int avail = tw - left_w - right_w - 8;
   if (avail < 20) avail = 20;
 
@@ -1326,18 +1326,14 @@ static int hit_menu(int mx, int my, int *which) {
 
 static int hit_title_button(Group *g, int mx, int my) {
   int tx = g->x + 2;
-  int ty = g->y + 2;
+  int ty = g->y + 6; // 2
   int tw = g->w - 4;
-  int bw = 15, bh = 15;
-
-  int bx = tx + tw - bw - 4;
+  int bw = 16, bh = 16;
+  int bx = tx + tw - bw - 5; // 4
   if (mx >= bx && mx <= bx + bw && my >= ty && my <= ty + bh) return 2;
-
   bx -= (bw + 2);
   if (mx >= bx && mx <= bx + bw && my >= ty && my <= ty + bh) return 1;
-
   if (mx >= tx + 2 && mx <= tx + 17 && my >= ty + 2 && my <= ty + 17) return 3;
-
   return 0;
 }
 
@@ -1492,7 +1488,6 @@ int main(int argc, char **argv) {
         int bx_yes = dx + (dw - (2 * bw + gap)) / 2;
         int bx_no  = bx_yes + bw + gap;
         int by = dy + dh - 46;
-
         if (mx >= bx_yes && mx <= bx_yes + bw && my >= by && my <= by + bh) {
           /* Yes then exit */
           XCloseDisplay(dpy);
@@ -1516,7 +1511,7 @@ int main(int argc, char **argv) {
           if (g->state == STATE_MINIMIZED) continue;
           if (mx >= g->x && mx <= g->x + g->w && my >= g->y && my <= g->y + g->h) {
             if (button == Button4) g->scroll_offset -= 20;
-            else                  g->scroll_offset += 20;
+            else g->scroll_offset += 20;
             if (g->scroll_offset < 0) g->scroll_offset = 0;
             if (g->scroll_offset > g->max_scroll) g->scroll_offset = g->max_scroll;
             active_group = i;
@@ -1553,10 +1548,8 @@ int main(int argc, char **argv) {
           for (int i = n_groups - 1; i >= 0 && !handled; i--) {
             Group *g = &groups[i];
             if (g->state == STATE_MINIMIZED) continue;
-
             /* Confirm the click is inside the group */
-            int inside = (mx >= g->x && mx <= g->x + g->w &&
-                          my >= g->y && my <= g->y + g->h);
+            int inside = (mx >= g->x && mx <= g->x + g->w && my >= g->y && my <= g->y + g->h);
             if (!inside) continue;
 
             /* 1. Title bar */
@@ -1600,7 +1593,6 @@ int main(int argc, char **argv) {
                 int thumb_y = track_y;
                 if (g->max_scroll > 0)
                   thumb_y += (g->scroll_offset * (track_h - thumb_h)) / g->max_scroll;
-
                 if (my < track_y) {
                   g->scroll_offset -= 20;
                   if (g->scroll_offset < 0) g->scroll_offset = 0;
