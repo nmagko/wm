@@ -1519,14 +1519,14 @@ static void task_button_press (XButtonEvent *e) {
     return;
   }
 
-  if (y >= 169 && y < 169 + TASK_BTN_H) {
+  if (y >= 178 && y < 178 + TASK_BTN_H) {
     if (x < TASK_MARGIN + TASK_BTN_W) task_switch_selected();
     else if (x < TASK_MARGIN + 2 * TASK_BTN_W + TASK_GAP) {
       Win3Window *w = task_at(task_selected);
       close_task_list();
       if (w) send_delete(w);
     } else close_task_list();
-  } else if (y >= 211 && y < 211 + TASK_BTN_H) {
+  } else if (y >= 214 && y < 214 + TASK_BTN_H) {
     close_task_list();
     if (x < TASK_MARGIN + TASK_BTN_W) cascade_windows();
     else if (x < TASK_MARGIN + 2 * TASK_BTN_W + TASK_GAP) tile_windows();
