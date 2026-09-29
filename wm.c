@@ -27,14 +27,12 @@
 #include <X11/Xatom.h>
 #include <X11/cursorfont.h>
 #include "wmver.h"
+#include "wmpal.h"
 
 /* ================================================================ */
 /* Constants and macros */
 /* ================================================================ */
 #define S_BORDER  3
-/* #define C_BORDER  0x00AFBFCFUL // light pastel blue */
-#define C_BORDER  0x00537FADUL // pastel blue
-
 #define MAX(a, b) ((a) > (b) ? (a) : (b))
 
 /* ================================================================ */

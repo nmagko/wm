@@ -31,19 +31,11 @@
 #include <X11/keysym.h>
 #include <X11/cursorfont.h>
 #include "wmver.h"
+#include "wmpal.h"
 
 /* ================================================================ */
 /* Constants and macros */
 /* ================================================================ */
-/* VGA palette */
-#define C_DESKTOP       0x00808080UL
-#define C_FACE          0x00C0C4C8UL
-#define C_WHITE         0x00FFFFFFUL
-#define C_BLACK         0x00000000UL
-#define C_DARKGRAY      0x00808080UL
-#define C_ACTIVE_TITLE  0x00537FADUL
-#define C_INACTIVE      0x00A6A6A6UL
-
 /* Compact geometry */
 #define FRAME_EDGE        4
 #define TITLE_H          19
@@ -438,7 +430,7 @@ static void draw_control_box (Window window, GC gc, int pressed) {
   XFillRectangle(dpy, window, gc, x, y, (unsigned)w, (unsigned)h);
   draw_bevel(window, gc, x, y, w, h, !pressed);
   XSetForeground(dpy, gc, C_BLACK);
-  XDrawRectangle(dpy, window, gc, x + 4, y + 6, (unsigned)(w - 9), 2); // 8 -> 9
+  XDrawRectangle(dpy, window, gc, x + 3, y + 6, (unsigned)(w - 7), 2); // 4->3 9->7
 }
 
 /* Downward triangle as a minimize button */
@@ -1347,7 +1339,7 @@ static void draw_task_list (void) {
   XFillRectangle(dpy, task_win, gc, 8, 7, CTRL_W - 2, CTRL_H - 2);
   draw_bevel(task_win, gc, 8, 7, CTRL_W - 2, CTRL_H - 2, 1);
   XSetForeground(dpy, gc, C_BLACK);
-  XDrawRectangle(dpy, task_win, gc, 8 + 4, 7 + 6, 8, 2);
+  XDrawRectangle(dpy, task_win, gc, 8 + 3, 7 + 6, 10, 2);
 
   /* title */
   if (font_info) XSetFont(dpy, gc, font_info->fid);
@@ -1371,7 +1363,7 @@ static void draw_task_list (void) {
     if (!w || !w->title) continue;
 
     if (idx == task_selected) {
-      XSetForeground(dpy, gc, C_ACTIVE_TITLE);
+      XSetForeground(dpy, gc, C_BLACK); // C_ACTIVE_TITLE
       XFillRectangle(dpy, task_win, gc, TASK_MARGIN + 2, y,
                      TASK_W - 2 * TASK_MARGIN - 4, TASK_ROW_H);
       XSetForeground(dpy, gc, C_WHITE);
@@ -1384,13 +1376,13 @@ static void draw_task_list (void) {
   }
 
   /* buttons */
-  draw_task_button(gc, TASK_MARGIN, 169, "Switch To");
-  draw_task_button(gc, TASK_MARGIN + TASK_BTN_W + TASK_GAP, 169, "End Task");
-  draw_task_button(gc, TASK_MARGIN + 2 * (TASK_BTN_W + TASK_GAP), 169, "Cancel");
+  draw_task_button(gc, TASK_MARGIN, 178, "Switch To");
+  draw_task_button(gc, TASK_MARGIN + TASK_BTN_W + TASK_GAP, 178, "End Task");
+  draw_task_button(gc, TASK_MARGIN + 2 * (TASK_BTN_W + TASK_GAP), 178, "Cancel");
 
-  draw_task_button(gc, TASK_MARGIN, 211, "Cascade");
-  draw_task_button(gc, TASK_MARGIN + TASK_BTN_W + TASK_GAP, 211, "Tile");
-  draw_task_button(gc, TASK_MARGIN + 2 * (TASK_BTN_W + TASK_GAP), 211, "Arrange Icons");
+  draw_task_button(gc, TASK_MARGIN, 214, "Cascade");
+  draw_task_button(gc, TASK_MARGIN + TASK_BTN_W + TASK_GAP, 214, "Tile");
+  draw_task_button(gc, TASK_MARGIN + 2 * (TASK_BTN_W + TASK_GAP), 214, "Arrange Icons");
 
   XFreeGC(dpy, gc);
 }

@@ -15,8 +15,6 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
- * Compile:  gcc -O2 -o gnuos gnuos.c -lX11
- *
  */
 
 #define _GNU_SOURCE
@@ -40,6 +38,7 @@
 #include <X11/keysym.h>
 #include <X11/cursorfont.h>
 #include "wmver.h"
+#include "wmpal.h"
 
 /* ================================================================ */
 /* Constants and macros */
@@ -58,8 +57,6 @@
 #define ROW_H        16
 #define CHAR_W       7
 #define MAX_COLS     3 // columns for short view
-
-#define ALLOC(name, r, g, b) c.red=r; c.green=g; c.blue=b; XAllocColor(dpy, cmap, &c); name = c.pixel;
 
 /* ================================================================ */
 /* Data structures */
@@ -100,8 +97,6 @@ static Window win;
 static GC gc;
 static XFontStruct *font, *font_bold;
 static Colormap cmap;
-static unsigned long col_bg, col_fg, col_hi_bg, col_hi_fg, col_btn,
-  col_btn_hi, col_btn_lo, col_menu_bg, col_path_bg, col_dlg_bg;
 
 static Drive drives[MAX_DRIVES];
 static int ndrives = 0;
@@ -312,38 +307,38 @@ static void draw_rect(int x, int y, int w, int h, unsigned long c) {
 /* Draw a floppy-drive icon */
 static void draw_floppy_drive(int x, int y, int w, int h, int active) {
   /* outer body */
-  set_fg(active ? col_hi_fg : col_fg);
+  set_fg(active ? COL_HI_FG : COL_FG);
   XFillRectangle(dpy, win, gc, x, y, w, h);
-  set_fg(col_fg);
+  set_fg(COL_FG);
   XDrawRectangle(dpy, win, gc, x, y, w, h);
   /* slot */
   int sw = w * 80 / 100;
   int sx = x + (w - sw) / 2;
-  fill_rect(sx, y + h/2 - 1, sw, 2, active ? col_fg : col_hi_fg);
-  set_fg(active ? col_hi_fg : col_fg);
+  fill_rect(sx, y + h/2 - 1, sw, 2, active ? COL_FG : COL_HI_FG);
+  set_fg(active ? COL_HI_FG : COL_FG);
   XDrawRectangle(dpy, win, gc, sx, y + h/2 - 1, sw, 2);
   /* lock area */
-  fill_rect(x + w/2 - sw/4, y + h/2 - 2, sw/2, 4, active ? col_fg : col_hi_fg);
-  set_fg(active ? col_hi_fg : col_fg);
+  fill_rect(x + w/2 - sw/4, y + h/2 - 2, sw/2, 4, active ? COL_FG : COL_HI_FG);
+  set_fg(active ? COL_HI_FG : COL_FG);
   XDrawRectangle(dpy, win, gc, x + w/2 - sw/4, y + h/2 - 2, sw/2, 4);
 }
 
 /* Draw a floppy-disk icon */
 static void draw_floppy(int x, int y, int w, int h, int active) {
   /* outer body */
-  set_fg(active ? col_hi_fg : col_fg);
+  set_fg(active ? COL_HI_FG : COL_FG);
   XFillRectangle(dpy, win, gc, x, y, w, h);
-  set_fg(col_fg);
+  set_fg(COL_FG);
   XDrawRectangle(dpy, win, gc, x, y, w, h);
   /* shutter */
   int sw = w * 40 / 100;
   int sx = x + (w - sw) / 2;
-  fill_rect(sx, y + 1, sw, h / 3, active ? col_fg : col_hi_fg);
-  set_fg(active ? col_hi_fg : col_fg);
+  fill_rect(sx, y + 1, sw, h / 3, active ? COL_FG : COL_HI_FG);
+  set_fg(active ? COL_HI_FG : COL_FG);
   XDrawRectangle(dpy, win, gc, sx, y + 1, sw-1, h/3 - 1);
   /* label */
-  fill_rect(x + 2, y + h/2, w - 4, h/2 - 3, active ? col_fg : col_hi_fg);
-  set_fg(active ? col_hi_fg : col_fg);
+  fill_rect(x + 2, y + h/2, w - 4, h/2 - 3, active ? COL_FG : COL_HI_FG);
+  set_fg(active ? COL_HI_FG : COL_FG);
   XDrawRectangle(dpy, win, gc, x + 2, y + h/2, w - 5, h/2 - 4);
 }
 
@@ -370,16 +365,16 @@ static void draw_special_menu(void) {
   const char *items[] = { "About...", "Exit" };
   int n = 2;
   int h = n * 18 + 6;
-  fill_rect(x, y, w, h + SEPARATOR_H * special_menu_separators, col_menu_bg);
-  set_fg(col_fg);
+  fill_rect(x, y, w, h + SEPARATOR_H * special_menu_separators, COL_MENU_BG);
+  set_fg(COL_FG);
   XDrawRectangle(dpy, win, gc, x, y, w-1, h-1 + SEPARATOR_H * special_menu_separators);
   for (int i = 0; i < n; i++) {
     if (i == 1) { // separator before Exit
-      set_fg(col_btn_lo);
+      set_fg(COL_BTN_LO);
       /* XDrawLine(dpy, win, gc, x + 4, y + 6 + i * 18, x + w - 5, y + 6 + i * 18); */
       y += SEPARATOR_H; // we add a separator size every time we find it
       XDrawLine(dpy, win, gc, x + 4, y + i * 18, x + w - 5, y + i * 18);
-      set_fg(col_fg);
+      set_fg(COL_FG);
     }
     draw_text(x + 10, y + 16 + i * 18, items[i], 0);
   }
@@ -389,57 +384,57 @@ static void draw_special_menu(void) {
 /* Main window drawing */
 /* ================================================================ */
 static void draw_menubar(void) {
-  fill_rect(0, 0, win_w, MENUBAR_H, col_menu_bg);
-  set_fg(col_fg);
+  fill_rect(0, 0, win_w, MENUBAR_H, COL_MENU_BG);
+  set_fg(COL_FG);
   XDrawLine(dpy, win, gc, 0, MENUBAR_H-1, win_w, MENUBAR_H-1);
   int x = 6;
   const char *items[] = { "File", "View", "Special" };
   for (int i = 0; i < 3; i++) {
     int w = strlen(items[i]) * CHAR_W + 12;
     int highlighted = (i == 2) ? special_menu_open : (menu_open && menu_item == i);
-    if (highlighted) fill_rect(x, 2, w, MENUBAR_H-5, col_hi_bg);
-    set_fg(highlighted ? col_hi_fg : col_fg);
+    if (highlighted) fill_rect(x, 2, w, MENUBAR_H-5, COL_BLACK); // COL_HI_BG
+    set_fg(highlighted ? COL_HI_FG : COL_FG);
     draw_text(x + 6, MENUBAR_H - 8, items[i], 0);
     x += w;
   }
   /* Title on the right */
   const char *title = "GNUOS Executive";
   int tw = strlen(title) * CHAR_W;
-  set_fg(col_fg);
+  set_fg(COL_FG);
   draw_text(win_w - tw - 8, MENUBAR_H - 8, title, 0);
 }
 
 static void draw_drivebar(void) {
-  fill_rect(0, MENUBAR_H, win_w, DRIVEBAR_H, col_bg);
-  set_fg(col_fg);
+  fill_rect(0, MENUBAR_H, win_w, DRIVEBAR_H, COL_BG);
+  set_fg(COL_FG);
   XDrawLine(dpy, win, gc, 0, MENUBAR_H + DRIVEBAR_H - 1, win_w, MENUBAR_H + DRIVEBAR_H - 1);
   int x = 8;
   int y = MENUBAR_H + 2;
   for (int i = 0; i < ndrives; i++) {
     int active = (i == cur_drive);
     /* fill with white when inactive and with black when active */
-    fill_rect(x, y, 60+32, 26, active ? col_fg : col_bg); // +32
+    fill_rect(x, y, 60+32, 26, active ? COL_FG : COL_BG); // +32
     if (active) {
       /* black body + white border */
-      draw_rect(x, y, 60+32, 26, col_hi_fg); // +32
-      draw_rect(x+1, y+1, 58+32, 24, col_hi_fg); // +32
+      draw_rect(x, y, 60+32, 26, COL_HI_FG); // +32
+      draw_rect(x+1, y+1, 58+32, 24, COL_HI_FG); // +32
     } else {
       /* white body + dark border + inner highlight */
-      draw_rect(x, y, 60+32, 26, col_btn_lo); // +32
-      draw_rect(x+1, y+1, 58+32, 24, col_btn_hi); // +32
+      draw_rect(x, y, 60+32, 26, COL_BTN_LO); // +32
+      draw_rect(x+1, y+1, 58+32, 24, COL_BTN_HI); // +32
     }
     draw_floppy_drive(x + 4, y + 5, 16+32, 16, active);
     char lbl[16];
     ellipsize(drives[i].label, lbl, 5);
     /* label color depends on the state */
-    set_fg(active ? col_hi_fg : col_fg);
+    set_fg(active ? COL_HI_FG : COL_FG);
     draw_text(x + 24+32, y + 17, lbl, 0); // +32
     x += 68+32; // +32
     if (x + 60+32 > win_w - 200) break; // +32
   }
   /* path on the right of the drive icon */
   if (x + 10 < win_w) {
-    set_fg(col_fg);
+    set_fg(COL_FG);
     draw_text(x + 10, y + 17, cwd, 0);
   }
 }
@@ -458,7 +453,7 @@ static void file_row_rect(int idx, int *x, int *y, int *w, int *h) {
 static void draw_filelist(void) {
   int area_y = MENUBAR_H + DRIVEBAR_H + PATHBAR_H;
   int area_h = win_h - area_y;
-  fill_rect(0, area_y, win_w, area_h, col_bg);
+  fill_rect(0, area_y, win_w, area_h, COL_BG);
   int rows = area_h / ROW_H;
   int ncols = (nfiles + rows - 1) / rows;
   if (ncols < 1) ncols = 1;
@@ -467,7 +462,7 @@ static void draw_filelist(void) {
     if (i >= sel_start && i <= sel_end) {
       int x, y, w, h;
       file_row_rect(i, &x, &y, &w, &h);
-      fill_rect(x - 2, y, w, h, col_hi_bg);
+      fill_rect(x - 2, y, w, h, COL_BLACK); // COL_HI_BG
     }
   }
   for (int i = 0; i < nfiles; i++) {
@@ -475,7 +470,7 @@ static void draw_filelist(void) {
     file_row_rect(i, &x, &y, &w, &h);
     if (y + ROW_H > win_h) continue;
     int selected = (i >= sel_start && i <= sel_end);
-    unsigned long fg = selected ? col_hi_fg : col_fg;
+    unsigned long fg = selected ? COL_HI_FG : COL_FG;
     set_fg(fg);
     char label[32];
     ellipsize(files[i].name, label, 28);
@@ -504,7 +499,7 @@ static void draw_filelist(void) {
   }
   /* scrollbar indicator */
   if (nfiles > rows * MAX_COLS) {
-    set_fg(col_fg);
+    set_fg(COL_FG);
     draw_text(win_w - 20, area_y + 16, "v", 0);
   }
 }
@@ -518,8 +513,8 @@ static void draw_file_menu(void) {
   int n = 6;
   int h = n * 18 + 6;
   /* background + border */
-  fill_rect(x, y, w, h, col_menu_bg);
-  set_fg(col_fg);
+  fill_rect(x, y, w, h, COL_MENU_BG);
+  set_fg(COL_FG);
   XDrawRectangle(dpy, win, gc, x, y, w-1, h-1);
   /* items on top */
   for (int i = 0; i < n; i++) {
@@ -547,27 +542,27 @@ static void draw_dialog(void) {
   int dx = (win_w - dw) / 2;
   int dy = (win_h - dh) / 2;
   /* outline, border, and dialog background */
-  fill_rect(dx-3, dy-3, dw+6, dh+6, col_fg);
-  fill_rect(dx-2, dy-2, dw+4, dh+4, col_hi_bg);
-  fill_rect(dx+1, dy+1, dw-2, dh-2, col_dlg_bg);
+  fill_rect(dx-3, dy-3, dw+6, dh+6, COL_FG);
+  fill_rect(dx-2, dy-2, dw+4, dh+4, COL_HI_BG);
+  fill_rect(dx+1, dy+1, dw-2, dh-2, COL_DLG_BG);
   /* title bar */
-  fill_rect(dx+2, dy+2, dw-4, 20, col_hi_bg);
-  set_fg(col_hi_fg);
+  fill_rect(dx+2, dy+2, dw-4, 20, COL_HI_BG);
+  set_fg(COL_HI_FG);
   int w0 = strlen(dlg_title) * CHAR_W;
   draw_text(dx + (dw - w0) / 2, dy + 17, dlg_title, 0);
   /* dialog content */
-  set_fg(col_fg);
+  set_fg(COL_FG);
   if (dlg_type != DIALOG_ABOUT)
     draw_text(dx + 16, dy + 46, dlg_prompt, 0);
   if (dlg_type == DIALOG_INPUT) {
     /* input box */
-    fill_rect(dx + 16, dy + 60, dw - 32, 24, col_bg);
-    set_fg(col_fg);
-    draw_rect(dx + 16, dy + 60, dw - 32, 24, col_fg);
+    fill_rect(dx + 16, dy + 60, dw - 32, 24, COL_BG);
+    set_fg(COL_FG);
+    draw_rect(dx + 16, dy + 60, dw - 32, 24, COL_FG);
     draw_text(dx + 22, dy + 77, dlg_input, 0);
     /* cursor */
     int cx = dx + 22 + dlg_input_pos * CHAR_W;
-    set_fg(col_fg);
+    set_fg(COL_FG);
     XDrawLine(dpy, win, gc, cx, dy + 62, cx, dy + 80);
     /* OK hint */
     draw_text(dx + 16, dy + 100, "[Enter]=OK  [Esc]=Cancel", 0);
@@ -579,9 +574,9 @@ static void draw_dialog(void) {
     draw_text(dx + 16, dy + 80, "[Enter] or [Esc] to close", 0);
   } else if (dlg_type == DIALOG_BROWSE) {
     /* browser path */
-    fill_rect(dx + 16, dy + 60, dw - 32, 22, col_path_bg);
-    set_fg(col_fg);
-    draw_rect(dx + 16, dy + 60, dw - 32, 22, col_fg);
+    fill_rect(dx + 16, dy + 60, dw - 32, 22, COL_PATH_BG);
+    set_fg(COL_FG);
+    draw_rect(dx + 16, dy + 60, dw - 32, 22, COL_FG);
     char bp[256];
     ellipsize(dlg_browse_path, bp, (dw - 40) / CHAR_W);
     draw_text(dx + 22, dy + 76, bp, 0);
@@ -590,18 +585,18 @@ static void draw_dialog(void) {
     int ly = dy + 90;
     int lw = dw - 32;
     int lh = dh - 130;
-    fill_rect(lx, ly, lw, lh, col_bg);
-    set_fg(col_fg);
-    draw_rect(lx, ly, lw, lh, col_fg);
+    fill_rect(lx, ly, lw, lh, COL_BG);
+    set_fg(COL_FG);
+    draw_rect(lx, ly, lw, lh, COL_FG);
     int rows = lh / ROW_H;
     for (int i = 0; i < rows && i + dlg_browse_top < dlg_browse_nfiles; i++) {
       int idx = i + dlg_browse_top;
       int ry = ly + i * ROW_H;
       if (idx == dlg_browse_sel) {
-        fill_rect(lx + 1, ry, lw - 2, ROW_H, col_hi_bg);
-        set_fg(col_hi_fg);
+        fill_rect(lx + 1, ry, lw - 2, ROW_H, COL_BLACK); // COL_HI_BG
+        set_fg(COL_HI_FG);
       } else {
-        set_fg(col_fg);
+        set_fg(COL_FG);
       }
       const char *nm = dlg_browse_files[idx].name;
       char tb[128];
@@ -609,7 +604,7 @@ static void draw_dialog(void) {
       draw_text(lx + 8, ry + ROW_H - 3, tb,
                 dlg_browse_files[idx].is_dir);
     }
-    set_fg(col_fg);
+    set_fg(COL_FG);
     draw_text(dx + 16, dy + dh - 14, "[Enter]=Open dir  [Backspace]=Up  [Tab]=Choose  [Esc]=Cancel", 0);
   } else if (dlg_type == DIALOG_ABOUT) {
     /* floppy icon */
@@ -635,11 +630,11 @@ static void draw_dialog(void) {
     int bw = 80, bh = 26;
     int bx = dx + (dw - bw) / 2;
     int by = dy + dh - 46;
-    fill_rect(bx, by, bw, bh, col_btn);
-    draw_rect(bx, by, bw, bh, col_btn_lo);
-    draw_rect(bx+1, by+1, bw-2, bh-2, col_btn_hi);
+    fill_rect(bx, by, bw, bh, COL_BTN);
+    draw_rect(bx, by, bw, bh, COL_BTN_LO);
+    draw_rect(bx+1, by+1, bw-2, bh-2, COL_BTN_HI);
     int oktw = strlen("OK") * CHAR_W;
-    set_fg(col_fg);
+    set_fg(COL_FG);
     draw_text(bx + (bw - oktw) / 2, by + 17, "OK", 0);
   } else if (dlg_type == DIALOG_PROGRESS) {
     char line[128];
@@ -652,11 +647,11 @@ static void draw_dialog(void) {
     int bw = 90, bh = 26;
     int bx = dx + dw - bw - 16;
     int by = dy + dh - bh - 12;
-    fill_rect(bx, by, bw, bh, col_btn);
-    draw_rect(bx, by, bw, bh, col_btn_lo);
-    draw_rect(bx+1, by+1, bw-2, bh-2, col_btn_hi);
+    fill_rect(bx, by, bw, bh, COL_BTN);
+    draw_rect(bx, by, bw, bh, COL_BTN_LO);
+    draw_rect(bx+1, by+1, bw-2, bh-2, COL_BTN_HI);
     int tw = strlen("Cancel") * CHAR_W;
-    set_fg(col_fg);
+    set_fg(COL_FG);
     draw_text(bx + (bw - tw) / 2, by + 17, "Cancel", 0);
   }
   XFlush(dpy);
@@ -1287,19 +1282,6 @@ int main(int argc, char **argv) {
   root = RootWindow(dpy, scr);
   /* Colors */
   cmap = DefaultColormap(dpy, scr);
-  XColor c;
-  ALLOC(col_bg, 0xFFFF, 0xFFFF, 0xFFFF); // white
-  ALLOC(col_fg, 0x0000, 0x0000, 0x0000); // black
-  /* ALLOC(col_hi_bg, 0x0000, 0x0000, 0x8000); // windows 3.1 dark blue */
-  ALLOC(col_hi_bg, 0x5353, 0x7F7F, 0xADAD); // windows 3.0 blue
-  ALLOC(col_hi_fg, 0xFFFF, 0xFFFF, 0xFFFF); // windows 3.0 white
-  ALLOC(col_btn, 0xC0C0, 0xC4C4, 0xC8C8);
-  ALLOC(col_btn_hi, 0xFFFF, 0xFFFF, 0xFFFF);
-  ALLOC(col_btn_lo, 0x8080, 0x8080, 0x8080);
-  ALLOC(col_menu_bg, 0xFFFF, 0xFFFF, 0xFFFF);
-  ALLOC(col_path_bg, 0xFFFF, 0xFFFF, 0xFFFF);
-  /* ALLOC(col_dlg_bg, 0xC0C0, 0xC0C0, 0xC0C0) */
-  ALLOC(col_dlg_bg, 0xFFFF, 0xFFFF, 0xFFFF);
 
   /* Fonts */
   font = XLoadQueryFont(dpy, "-*-fixed-medium-r-normal--14-*-*-*-*-*-iso8859-1");
@@ -1316,7 +1298,7 @@ int main(int argc, char **argv) {
     if (init_x < 0) init_x = 0;
     if (init_y < 0) init_y = 0;
   }
-  win = XCreateSimpleWindow(dpy, root, init_x, init_y, WIN_W, WIN_H, 1, col_fg, col_bg);
+  win = XCreateSimpleWindow(dpy, root, init_x, init_y, WIN_W, WIN_H, 1, COL_FG, COL_BG);
   {
     Cursor cursor = XCreateFontCursor(dpy, XC_left_ptr);
     XDefineCursor(dpy, win, cursor);

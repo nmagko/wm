@@ -18,27 +18,16 @@
  */
 
 /* Version info */
-
 #define pVer     "0.03a"
-
 #define pDate    "2018"
-
 #define uDate    "2026"
-
 #define pAuthor  " Victor \"nmagko\" C"
 
 /* Version strings */
-
 #define WM_MGR_VERSION_NAME    "WM Window Manager"
-
 #define WM_MGR_VERSION_NUMBER  "Version " pVer
-
 #define WM_MGR_COPYRIGHT       "Copyright (C) " pDate pAuthor
-
 #define WM_MGR_COPYRIGHT_UPD   "Copyright (C) " uDate pAuthor
-
 #define WM_TUI_VERSION_SHORT   WM_MGR_VERSION_NAME " v" pVer
-
 #define WM_TUI_VERSION_STRING  WM_TUI_VERSION_SHORT "\nCopyright (C) " pDate pAuthor
-
 #define WM_GUI_VERSION_STRING  WM_MGR_VERSION_NAME "\n" WM_MGR_VERSION_NUMBER "\n" WM_MGR_COPYRIGHT

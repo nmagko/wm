@@ -15,8 +15,6 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
- * Compile: gcc -O2 -o progman progman.c -lX11
- *
  */
 
 #define _GNU_SOURCE
@@ -40,6 +38,7 @@
 #include <png.h>
 #include <signal.h>
 #include "wmver.h"
+#include "wmpal.h"
 
 /* ================================================================ */
 /* Constants and Macros */
@@ -67,8 +66,6 @@
 #define STATE_NORMAL 0
 #define STATE_MAXIMIZED 1
 #define STATE_MINIMIZED 2
-
-#define ALLOC(name, r, g, b) c.red=r; c.green=g; c.blue=b; XAllocColor(dpy, cmap, &c); name = c.pixel;
 
 #define TARGET (progman_draw_target ? progman_draw_target : win)
 
@@ -107,9 +104,6 @@ static Window win;
 static GC gc;
 static XFontStruct *font;
 static Colormap cmap;
-
-static unsigned long col_yellow, col_face, col_btn, col_white, col_black,
-  col_gray, col_cyan, col_blue, col_active_title, col_inactive_title;
 
 static Group groups[MAX_GROUPS];
 static int n_groups = 0;
@@ -207,8 +201,8 @@ static void draw_rect(int x, int y, int width, int height, unsigned long c) {
 }
 
 static void draw_bevel(int x, int y, int width, int height, int raised) {
-  unsigned long tl = raised ? col_white : col_gray;
-  unsigned long br = raised ? col_gray : col_white;
+  unsigned long tl = raised ? COL_WHITE : COL_GRAY;
+  unsigned long br = raised ? COL_GRAY : COL_WHITE;
   XSetForeground(dpy, gc, tl);
   XDrawLine(dpy, TARGET, gc, x, y, x + width - 1, y);
   XDrawLine(dpy, TARGET, gc, x, y, x, y + height - 1);
@@ -520,14 +514,14 @@ static void draw_group_icon(Group *g, int x, int y) {
   int icon_h = 34;
 
   /* White background of the group icon */
-  fill_rect(x + 4, y + 3, icon_w - 4, icon_h - 4, col_gray);
-  fill_rect(x + 2, y + 1, icon_w - 4, icon_h - 4, col_white);
+  fill_rect(x + 4, y + 3, icon_w - 4, icon_h - 4, COL_GRAY);
+  fill_rect(x + 2, y + 1, icon_w - 4, icon_h - 4, COL_WHITE);
   draw_bevel(x + 2, y + 1, icon_w - 4, icon_h - 4, 1);
-  draw_rect(x + 2, y + 1, icon_w - 4, icon_h - 4, col_black);
+  draw_rect(x + 2, y + 1, icon_w - 4, icon_h - 4, COL_BLACK);
 
   /* Tiny title bar at the top */
-  fill_rect(x + 2, y + 1, icon_w - 4, 5, col_cyan);
-  draw_rect(x + 2, y + 1, icon_w - 4, 5, col_black);
+  fill_rect(x + 2, y + 1, icon_w - 4, 5, COL_CYAN);
+  draw_rect(x + 2, y + 1, icon_w - 4, 5, COL_BLACK);
 
   /* 6 vertical blank sheets (2 rows of 3) */
   int sheet_w = 7;
@@ -542,15 +536,15 @@ static void draw_group_icon(Group *g, int x, int y) {
       int sx = start_x + col * (sheet_w + sheet_gap_x);
       int sy = start_y + row * (sheet_h + sheet_gap_y);
       /* Vertical white blank sheet */
-      fill_rect(sx, sy, sheet_w, sheet_h, col_white);
-      draw_rect(sx, sy, sheet_w, sheet_h, col_black);
+      fill_rect(sx, sy, sheet_w, sheet_h, COL_WHITE);
+      draw_rect(sx, sy, sheet_w, sheet_h, COL_BLACK);
       /* Vertical white blank notch */
-      fill_rect(sx+sheet_w/2, sy, sheet_w/2, sheet_h/2, col_white);
-      draw_rect(sx+sheet_w/2, sy, sheet_w/2, sheet_h/2, col_black);
-      XSetForeground(dpy, gc, col_white);
+      fill_rect(sx+sheet_w/2, sy, sheet_w/2, sheet_h/2, COL_WHITE);
+      draw_rect(sx+sheet_w/2, sy, sheet_w/2, sheet_h/2, COL_BLACK);
+      XSetForeground(dpy, gc, COL_WHITE);
       XPoint notch[] = {{sx+sheet_w/2, sy}, {sx+sheet_w, sy}, {sx+sheet_w, sy+sheet_h/2}};
       XFillPolygon(dpy, TARGET, gc, notch, 3, Convex, CoordModeOrigin);
-      XSetForeground(dpy, gc, col_black);
+      XSetForeground(dpy, gc, COL_BLACK);
       XDrawLine(dpy, TARGET, gc, sx+sheet_w/2, sy, sx+sheet_w-1, sy+sheet_h/2-1);
     }
   }
@@ -589,7 +583,7 @@ static void draw_group_icon(Group *g, int x, int y) {
     line_count++;
   }
 
-  XSetForeground(dpy, gc, col_black);
+  XSetForeground(dpy, gc, COL_BLACK);
   int line_y = y + icon_h + 16; // 12
   int icon_cx = x + GROUP_ICON_W / 2;
   for (int li = 0; li < line_count; li++) {
@@ -624,44 +618,44 @@ static void draw_app_icon(App *a, int ix, int iy) {
   int lx = ix - 4;
   int iw = ICON_SIZE + 8;
   /* wide border */
-  fill_rect(lx+1, iy+1, iw-2, ICON_SIZE-2, col_btn);
+  fill_rect(lx+1, iy+1, iw-2, ICON_SIZE-2, COL_BTN);
   draw_bevel(lx+1, iy+1, iw-2, ICON_SIZE-2, 1);
-  draw_rect(lx, iy, iw, ICON_SIZE, col_black);
-  fill_rect(lx + 4, iy + 4, iw - 8, ICON_SIZE - 8, col_white);
+  draw_rect(lx, iy, iw, ICON_SIZE, COL_BLACK);
+  fill_rect(lx + 4, iy + 4, iw - 8, ICON_SIZE - 8, COL_WHITE);
   draw_bevel(lx + 4, iy + 4, iw - 8, ICON_SIZE - 8, 0);
   /* window title */
-  draw_rect(lx + 5, iy + 5, iw - 10, ICON_SIZE - 10, col_black);
-  fill_rect(lx + 5, iy + 5, iw - 10, 5, col_cyan);
-  draw_rect(lx + 5, iy + 5, iw - 10, 5, col_black);
+  draw_rect(lx + 5, iy + 5, iw - 10, ICON_SIZE - 10, COL_BLACK);
+  fill_rect(lx + 5, iy + 5, iw - 10, 5, COL_CYAN);
+  draw_rect(lx + 5, iy + 5, iw - 10, 5, COL_BLACK);
   /* window content */
-  fill_rect(lx + 8, iy + 13, iw - 16, 1, col_blue);
-  fill_rect(lx + 8, iy + 16, iw - 17, 1, col_blue);
-  fill_rect(lx + 8, iy + 19, iw - 16, 1, col_blue);
-  fill_rect(lx + 8, iy + 22, iw - 17, 1, col_blue);
+  fill_rect(lx + 8, iy + 13, iw - 16, 1, COL_BLUE);
+  fill_rect(lx + 8, iy + 16, iw - 17, 1, COL_BLUE);
+  fill_rect(lx + 8, iy + 19, iw - 16, 1, COL_BLUE);
+  fill_rect(lx + 8, iy + 22, iw - 17, 1, COL_BLUE);
 }
 
 /* Windows 3.0 about window icon */
 static void draw_app_window(int ix, int iy) {
   /* shadow */
-  fill_rect(2+ix+2, 2+iy, ICON_SIZE - 4, 1, col_gray);
-  fill_rect(2+ix+3, 2+iy + 1, ICON_SIZE - 6, 1, col_gray);
-  fill_rect(2+ix+2, 2+iy + ICON_SIZE, ICON_SIZE - 4, 1, col_gray);
-  fill_rect(2+ix+3, 2+iy + ICON_SIZE-1, ICON_SIZE - 6, 1, col_gray);
-  fill_rect(2+ix+4, 2+iy, ICON_SIZE - 8, ICON_SIZE, col_gray);
+  fill_rect(2+ix+2, 2+iy, ICON_SIZE - 4, 1, COL_GRAY);
+  fill_rect(2+ix+3, 2+iy + 1, ICON_SIZE - 6, 1, COL_GRAY);
+  fill_rect(2+ix+2, 2+iy + ICON_SIZE, ICON_SIZE - 4, 1, COL_GRAY);
+  fill_rect(2+ix+3, 2+iy + ICON_SIZE-1, ICON_SIZE - 6, 1, COL_GRAY);
+  fill_rect(2+ix+4, 2+iy, ICON_SIZE - 8, ICON_SIZE, COL_GRAY);
   /* base */
-  fill_rect(ix+2, iy, ICON_SIZE - 4, 1, col_black);
-  fill_rect(ix+3, iy + 1, ICON_SIZE - 6, 1, col_black);
-  fill_rect(ix+2, iy + ICON_SIZE, ICON_SIZE - 4, 1, col_black);
-  fill_rect(ix+3, iy + ICON_SIZE-1, ICON_SIZE - 6, 1, col_black);
-  fill_rect(ix+4, iy, ICON_SIZE - 8, ICON_SIZE, col_black);
+  fill_rect(ix+2, iy, ICON_SIZE - 4, 1, COL_BLACK);
+  fill_rect(ix+3, iy + 1, ICON_SIZE - 6, 1, COL_BLACK);
+  fill_rect(ix+2, iy + ICON_SIZE, ICON_SIZE - 4, 1, COL_BLACK);
+  fill_rect(ix+3, iy + ICON_SIZE-1, ICON_SIZE - 6, 1, COL_BLACK);
+  fill_rect(ix+4, iy, ICON_SIZE - 8, ICON_SIZE, COL_BLACK);
   /* upper glass */
-  fill_rect(ix+6, iy + 2, ICON_SIZE - 12, ICON_SIZE/2 - 2, col_btn);
-  fill_rect(ix+8, iy + 4, ICON_SIZE - 16, ICON_SIZE/2 - 6, col_white);
-  draw_rect(ix+7, iy + 3, ICON_SIZE - 14, ICON_SIZE/2 - 4, col_gray);
+  fill_rect(ix+6, iy + 2, ICON_SIZE - 12, ICON_SIZE/2 - 2, COL_BTN);
+  fill_rect(ix+8, iy + 4, ICON_SIZE - 16, ICON_SIZE/2 - 6, COL_WHITE);
+  draw_rect(ix+7, iy + 3, ICON_SIZE - 14, ICON_SIZE/2 - 4, COL_GRAY);
   /* lower glass */
-  fill_rect(ix+6, iy + ICON_SIZE/2 + 1, ICON_SIZE - 12, ICON_SIZE/2 - 2, col_btn);
-  fill_rect(ix+8, iy + ICON_SIZE/2 + 4, ICON_SIZE - 16, ICON_SIZE/2 - 6, col_white);
-  draw_rect(ix+7, iy + ICON_SIZE/2 + 2, ICON_SIZE - 14, ICON_SIZE/2 - 4, col_gray);
+  fill_rect(ix+6, iy + ICON_SIZE/2 + 1, ICON_SIZE - 12, ICON_SIZE/2 - 2, COL_BTN);
+  fill_rect(ix+8, iy + ICON_SIZE/2 + 4, ICON_SIZE - 16, ICON_SIZE/2 - 6, COL_WHITE);
+  draw_rect(ix+7, iy + ICON_SIZE/2 + 2, ICON_SIZE - 14, ICON_SIZE/2 - 4, COL_GRAY);
 }
 
 /* Windows 3.0 drawing content */
@@ -675,7 +669,7 @@ static void draw_group_content(Group *g) {
 
   if (has_scroll) content_w -= sb_w;
 
-  fill_rect(g->x + 2 + 1, base_y + 1, w - 4 - 2, content_h - 2, col_white);
+  fill_rect(g->x + 2 + 1, base_y + 1, w - 4 - 2, content_h - 2, COL_WHITE);
 
   /* Each column slot is 104 px wide */
   int slot_w = 104;
@@ -758,10 +752,10 @@ static void draw_group_content(Group *g) {
 
     int line_y = iy + ICON_SIZE + 16; // 12
     if (i == g->selected_app) {
-      fill_rect(slot_x + 1, line_y - 14, slot_w - 2, line_count * 14 + 5, col_active_title);
-      XSetForeground(dpy, gc, col_white);
+      fill_rect(slot_x + 1, line_y - 14, slot_w - 2, line_count * 14 + 5, COL_ACTIVE_TITLE);
+      XSetForeground(dpy, gc, COL_WHITE);
     } else {
-      XSetForeground(dpy, gc, col_black);
+      XSetForeground(dpy, gc, COL_BLACK);
     }
     for (int li = 0; li < line_count; li++) {
       int text_w = XTextWidth(font, lines[li], strlen(lines[li]));
@@ -780,23 +774,23 @@ static void draw_group_content(Group *g) {
     int sb_y = base_y;
     int sb_h = content_h;
 
-    fill_rect(sb_x, sb_y, SCROLLBAR_W, sb_h, col_btn); // col_face
+    fill_rect(sb_x, sb_y, SCROLLBAR_W, sb_h, COL_BTN);
     draw_bevel(sb_x, sb_y, SCROLLBAR_W, sb_h, 0);
 
     int arrow_h = 16;
-    fill_rect(sb_x + 1, sb_y + 1, SCROLLBAR_W - 2, arrow_h, col_btn); // col_face
-    XSetForeground(dpy, gc, col_black);
+    fill_rect(sb_x + 1, sb_y + 1, SCROLLBAR_W - 2, arrow_h, COL_BTN);
+    XSetForeground(dpy, gc, COL_BLACK);
     XPoint up_pts[] = {{sb_x + 4, sb_y + arrow_h - 4},
                        {sb_x + SCROLLBAR_W / 2, sb_y + 5},
                        {sb_x + SCROLLBAR_W - 4, sb_y + arrow_h - 4}};
     XFillPolygon(dpy, TARGET, gc, up_pts, 3, Convex, CoordModeOrigin);
 
     int dn_y = sb_y + sb_h - arrow_h;
-    fill_rect(sb_x + 1, dn_y, SCROLLBAR_W - 2, arrow_h - 1, col_btn); // col_face
+    fill_rect(sb_x + 1, dn_y, SCROLLBAR_W - 2, arrow_h - 1, COL_BTN);
     XPoint dn_pts[] = {{sb_x + 5, dn_y + 4},
                        {sb_x + SCROLLBAR_W / 2, dn_y + arrow_h - 6},
                        {sb_x + SCROLLBAR_W - 4, dn_y + 4}};
-    XSetForeground(dpy, gc, col_black);
+    XSetForeground(dpy, gc, COL_BLACK);
     XFillPolygon(dpy, TARGET, gc, dn_pts, 3, Convex, CoordModeOrigin);
 
     int track_y = sb_y + arrow_h;
@@ -808,7 +802,7 @@ static void draw_group_content(Group *g) {
     if (g->max_scroll > 0) {
       thumb_y += (g->scroll_offset * (track_h - thumb_h)) / g->max_scroll;
     }
-    fill_rect(sb_x + 1, thumb_y, SCROLLBAR_W - 2, thumb_h, col_white);
+    fill_rect(sb_x + 1, thumb_y, SCROLLBAR_W - 2, thumb_h, COL_WHITE);
     draw_bevel(sb_x + 1, thumb_y, SCROLLBAR_W - 2, thumb_h, 1);
   }
 }
@@ -820,7 +814,7 @@ static void draw_group_title(Group *g) {
   int tw = g->w - 4 - 2;
   int th = TITLEBAR_H;
 
-  fill_rect(tx, ty, tw, th, is_active ? col_active_title : col_inactive_title);
+  fill_rect(tx, ty, tw, th, is_active ? COL_ACTIVE_TITLE : COL_INACTIVE_TITLE);
 
   /* Compute available width for title text */
   int left_w = 20; // control menu box
@@ -831,21 +825,21 @@ static void draw_group_title(Group *g) {
   char title_buf[128];
   fit_text(title_buf, g->name, avail);
 
-  XSetForeground(dpy, gc, col_white);
+  XSetForeground(dpy, gc, COL_WHITE);
   draw_text(tx + left_w + 2, ty + 15, title_buf);
 
   int bw = 16, bh = 16;
 
   /* Control menu box */
-  fill_rect(tx + 2, ty + 2, bw, bh, col_btn);
+  fill_rect(tx + 2, ty + 2, bw, bh, COL_BTN);
   draw_bevel(tx + 2, ty + 2, bw, bh, 1);
-  draw_rect(tx + 6, ty + 8, 7, 3, col_black);
+  draw_rect(tx + 5, ty + 8, 9, 3, COL_BLACK);
 
   /* Maximize button */
   int bx = tx + tw - bw - 4;
-  fill_rect(bx, ty + 2, bw, bh, col_btn);
+  fill_rect(bx, ty + 2, bw, bh, COL_BTN);
   draw_bevel(bx, ty + 2, bw, bh, 1);
-  XSetForeground(dpy, gc, col_black);
+  XSetForeground(dpy, gc, COL_BLACK);
   if (g->state == STATE_MAXIMIZED) {
     XPoint uverts[] = {{bx + 3, ty + 9}, {bx + bw/2, ty + 4}, {bx + bw - 4, ty + 9}};
     XFillPolygon(dpy, TARGET, gc, uverts, 3, Convex, CoordModeOrigin);
@@ -858,17 +852,17 @@ static void draw_group_title(Group *g) {
 
   /* Minimize button */
   bx -= (bw + 2);
-  fill_rect(bx, ty + 2, bw, bh, col_btn);
+  fill_rect(bx, ty + 2, bw, bh, COL_BTN);
   draw_bevel(bx, ty + 2, bw, bh, 1);
-  XSetForeground(dpy, gc, col_black);
+  XSetForeground(dpy, gc, COL_BLACK);
   XPoint verts[] = {{bx + 4, ty + 8}, {bx + bw/2, ty + 12}, {bx + bw - 4, ty + 8}};
   XFillPolygon(dpy, TARGET, gc, verts, 3, Convex, CoordModeOrigin);
 }
 
 static void draw_group_frame(Group *g) {
-  fill_rect(g->x, g->y, g->w, g->h, col_face);
+  fill_rect(g->x, g->y, g->w, g->h, COL_FACE);
   draw_bevel(g->x + 1, g->y + 1, g->w - 2, g->h - 2, 1);
-  draw_rect(g->x, g->y, g->w, g->h, col_black);
+  draw_rect(g->x, g->y, g->w, g->h, COL_BLACK);
 }
 
 static void recalc_scroll(Group *g) {
@@ -911,8 +905,8 @@ static void update_group_window(Group *g) {
 /* Menu Drawing */
 /* ================================================================ */
 static void draw_menubar(void) {
-  fill_rect(0, 0, win_w, MENUBAR_H, col_white); // col_face
-  XSetForeground(dpy, gc, col_black);
+  fill_rect(0, 0, win_w, MENUBAR_H, COL_WHITE);
+  XSetForeground(dpy, gc, COL_BLACK);
   XDrawLine(dpy, TARGET, gc, 0, MENUBAR_H - 1, win_w, MENUBAR_H - 1);
 
   const char *items[] = { "File", "Window", "Help" };
@@ -920,8 +914,8 @@ static void draw_menubar(void) {
   for (int i = 0; i < 3; i++) {
     int w = strlen(items[i]) * CHAR_W + 12;
     int highlighted = (menu_open && menu_item == i);
-    if (highlighted) fill_rect(x, 2, w, MENUBAR_H - 5, col_active_title);
-    XSetForeground(dpy, gc, highlighted ? col_white : col_black);
+    if (highlighted) fill_rect(x, 2, w, MENUBAR_H - 5, COL_BLACK); // COL_ACTIVE_TITLE
+    XSetForeground(dpy, gc, highlighted ? COL_WHITE : COL_BLACK);
     draw_text(x + 6, MENUBAR_H - 8, items[i]);
     x += w;
   }
@@ -937,19 +931,19 @@ static void draw_dropdown(void) {
 
   if (menu_item == 0) {
     int y = MENUBAR_H, w = 150, h = 22;
-    fill_rect(x, y, w, h, col_white);
-    draw_rect(x, y, w, h, col_black);
+    fill_rect(x, y, w, h, COL_WHITE);
+    draw_rect(x, y, w, h, COL_BLACK);
     draw_text(x + 10, y + 16, "Exit");
   } else if (menu_item == 1) {
     int y = MENUBAR_H, w = 180, h = 44;
-    fill_rect(x, y, w, h, col_white);
-    draw_rect(x, y, w, h, col_black);
+    fill_rect(x, y, w, h, COL_WHITE);
+    draw_rect(x, y, w, h, COL_BLACK);
     draw_text(x + 10, y + 16, "Cascade  Shift+F5");
     draw_text(x + 10, y + 38, "Tile     Shift+F4");
   } else if (menu_item == 2) {
     int y = MENUBAR_H, w = 150, h = 22;
-    fill_rect(x, y, w, h, col_white);
-    draw_rect(x, y, w, h, col_black);
+    fill_rect(x, y, w, h, COL_WHITE);
+    draw_rect(x, y, w, h, COL_BLACK);
     draw_text(x + 10, y + 16, "About...");
   }
 }
@@ -1188,13 +1182,13 @@ static void draw_about_dialog(void) {
   int w2 = strlen(l2) * CHAR_W;
   int w3 = strlen(l3) * CHAR_W;
 
-  fill_rect(dx-3, dy-3, dw+6, dh+6, col_black);
-  fill_rect(dx-2, dy-2, dw+4, dh+4, col_active_title);
-  fill_rect(dx+1, dy+1, dw-2, dh-2, col_white);
-  fill_rect(dx+2, dy+2, dw-4, 20, col_active_title);
-  XSetForeground(dpy, gc, col_white);
+  fill_rect(dx-3, dy-3, dw+6, dh+6, COL_BLACK);
+  fill_rect(dx-2, dy-2, dw+4, dh+4, COL_ACTIVE_TITLE);
+  fill_rect(dx+1, dy+1, dw-2, dh-2, COL_WHITE);
+  fill_rect(dx+2, dy+2, dw-4, 20, COL_ACTIVE_TITLE);
+  XSetForeground(dpy, gc, COL_WHITE);
   draw_text(dx + (dw - 5 * CHAR_W) / 2, dy + 17, "About");
-  XSetForeground(dpy, gc, col_black);
+  XSetForeground(dpy, gc, COL_BLACK);
 
   draw_text(dx + (dw - w1)/2, dy + 60, l1);
   draw_text(dx + (dw - w2)/2, dy + 80, l2);
@@ -1203,10 +1197,10 @@ static void draw_about_dialog(void) {
   int bw = 80, bh = 26;
   int bx = dx + (dw - bw) / 2;
   int by = dy + dh - 46;
-  fill_rect(bx, by, bw, bh, col_btn); // col_face
+  fill_rect(bx, by, bw, bh, COL_BTN);
   draw_bevel(bx, by, bw, bh, 1);
-  draw_rect(bx-1, by-1, bw+2, bh+2, col_black);
-  XSetForeground(dpy, gc, col_black);
+  draw_rect(bx-1, by-1, bw+2, bh+2, COL_BLACK);
+  XSetForeground(dpy, gc, COL_BLACK);
   draw_text(bx + (bw - 2 * CHAR_W) / 2, by + 17, "OK");
 
   draw_app_window(dx+40, dy+40);
@@ -1218,13 +1212,13 @@ static void draw_exit_dialog(void) {
   int dy = (win_h - dh) / 2;
 
   /* Outer border, title bar, and face */
-  fill_rect(dx-3, dy-3, dw+6, dh+6, col_black);
-  fill_rect(dx-2, dy-2, dw+4, dh+4, col_active_title);
-  fill_rect(dx+1, dy+1, dw-2, dh-2, col_white);
-  fill_rect(dx+2, dy+2, dw-4, 20, col_active_title);
-  XSetForeground(dpy, gc, col_white);
+  fill_rect(dx-3, dy-3, dw+6, dh+6, COL_BLACK);
+  fill_rect(dx-2, dy-2, dw+4, dh+4, COL_ACTIVE_TITLE);
+  fill_rect(dx+1, dy+1, dw-2, dh-2, COL_WHITE);
+  fill_rect(dx+2, dy+2, dw-4, 20, COL_ACTIVE_TITLE);
+  XSetForeground(dpy, gc, COL_WHITE);
   draw_text(dx + (dw - 4 * CHAR_W) / 2, dy + 17, "Exit");
-  XSetForeground(dpy, gc, col_black);
+  XSetForeground(dpy, gc, COL_BLACK);
 
   /* Message */
   const char *msg = "Are you sure you want to exit?";
@@ -1239,17 +1233,17 @@ static void draw_exit_dialog(void) {
   int by = dy + dh - 46;
 
   /* Yes button */
-  fill_rect(bx_yes, by, bw, bh, col_btn);
+  fill_rect(bx_yes, by, bw, bh, COL_BTN);
   draw_bevel(bx_yes, by, bw, bh, 1);
-  draw_rect(bx_yes-1, by-1, bw+2, bh+2, col_black);
-  XSetForeground(dpy, gc, col_black);
+  draw_rect(bx_yes-1, by-1, bw+2, bh+2, COL_BLACK);
+  XSetForeground(dpy, gc, COL_BLACK);
   draw_text(bx_yes + (bw - 3 * CHAR_W) / 2, by + 17, "Yes");
 
   /* No button */
-  fill_rect(bx_no, by, bw, bh, col_btn);
+  fill_rect(bx_no, by, bw, bh, COL_BTN);
   draw_bevel(bx_no, by, bw, bh, 1);
-  draw_rect(bx_no-1, by-1, bw+2, bh+2, col_black);
-  XSetForeground(dpy, gc, col_black);
+  draw_rect(bx_no-1, by-1, bw+2, bh+2, COL_BLACK);
+  XSetForeground(dpy, gc, COL_BLACK);
   draw_text(bx_no + (bw - 2 * CHAR_W) / 2, by + 17, "No");
 }
 
@@ -1267,13 +1261,13 @@ static void draw_all(void) {
   }
 
   /* Switch to the pixmap */
-  XSetWindowBackground(dpy, TARGET, col_yellow);
+  XSetWindowBackground(dpy, TARGET, COL_YELLOW);
 
   /* Draw everything into the backbuffer */
   extern Window progman_draw_target;
   progman_draw_target = backbuf;
 
-  fill_rect(0, 0, win_w, win_h, col_yellow);
+  fill_rect(0, 0, win_w, win_h, COL_YELLOW);
 
   /* Minimized group icons */
   int icon_col = 0;
@@ -1365,18 +1359,6 @@ int main(int argc, char **argv) {
   root = RootWindow(dpy, scr);
   wait_for_window_manager(5000);
   cmap = DefaultColormap(dpy, scr);
-  XColor c;
-
-  ALLOC(col_yellow, 0xFFFF, 0xFFFF, 0xEEEE);
-  ALLOC(col_face, 0xC0C0, 0xC0C0, 0xC0C0);
-  ALLOC(col_btn, 0xC0C0, 0xC4C4, 0xC8C8);
-  ALLOC(col_white, 0xFFFF, 0xFFFF, 0xFFFF);
-  ALLOC(col_black, 0x0000, 0x0000, 0x0000);
-  ALLOC(col_gray, 0x8080, 0x8080, 0x8080);
-  ALLOC(col_cyan, 0x0000, 0xC7C7, 0xCFCF);
-  ALLOC(col_blue, 0x0000, 0x0000, 0xCFCF);
-  ALLOC(col_active_title, 0x5353, 0x7F7F, 0xADAD);
-  ALLOC(col_inactive_title, 0xA6A6, 0xA6A6, 0xA6A6);
 
   font = XLoadQueryFont(dpy, "-*-fixed-medium-r-normal--14-*-*-*-*-*-iso8859-1");
   if (!font) font = XLoadQueryFont(dpy, "fixed");
@@ -1390,7 +1372,7 @@ int main(int argc, char **argv) {
     if (init_x < 0) init_x = 0;
     if (init_y < 0) init_y = 0;
   }
-  win = XCreateSimpleWindow(dpy, root, init_x, init_y, DEF_WIN_W, DEF_WIN_H, 0, col_black, col_yellow);
+  win = XCreateSimpleWindow(dpy, root, init_x, init_y, DEF_WIN_W, DEF_WIN_H, 0, COL_BLACK, COL_YELLOW);
   progman_draw_target = win;
   {
     Cursor cursor = XCreateFontCursor(dpy, XC_left_ptr);
