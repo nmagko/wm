@@ -50,7 +50,6 @@
 #define ICON_ART_H        32
 
 /* Control menu, Minimize, and Maximize buttons */
-#define WIN3_SHOW_CLOSE_BUTTON 0
 #define STATE_NORMAL     0
 #define STATE_MINIMIZED  1
 #define STATE_MAXIMIZED  2
@@ -429,8 +428,10 @@ static void draw_control_box (Window window, GC gc, int pressed) {
   XSetForeground(dpy, gc, C_FACE);
   XFillRectangle(dpy, window, gc, x, y, (unsigned)w, (unsigned)h);
   draw_bevel(window, gc, x, y, w, h, !pressed);
+  XSetForeground(dpy, gc, C_WHITE);
+  XFillRectangle(dpy, window, gc, x + 3, y + 6, (unsigned)(w - 7), 2);
   XSetForeground(dpy, gc, C_BLACK);
-  XDrawRectangle(dpy, window, gc, x + 3, y + 6, (unsigned)(w - 7), 2); // 4->3 9->7
+  XDrawRectangle(dpy, window, gc, x + 3, y + 6, (unsigned)(w - 7), 2);
 }
 
 /* Downward triangle as a minimize button */
@@ -464,25 +465,8 @@ static void draw_max_button (Window window, GC gc, int x, int pressed, int maxim
   }
 }
 
-#if WIN3_SHOW_CLOSE_BUTTON
-static void draw_close_button (Window window, GC gc, int x, int pressed) {
-  int y = 1, w = CTRL_W - 2, h = CTRL_H - 2;
-  XSetForeground(dpy, gc, C_FACE);
-  XFillRectangle(dpy, window, gc, x, y, (unsigned)w, (unsigned)h);
-  draw_bevel(window, gc, x, y, w, h, !pressed);
-  XSetForeground(dpy, gc, C_BLACK);
-  XDrawLine(dpy, window, gc, x + 5, y + 5, x + w - 6, y + h - 6);
-  XDrawLine(dpy, window, gc, x + w - 6, y + 5, x + 5, y + h - 6);
-}
-#endif
-
-static int right_button_count (void) {
-  return WIN3_SHOW_CLOSE_BUTTON ? 3 : 2;
-}
-
 static int buttons_left (const Win3Window *w) {
-  return frame_width(w) - 2 * FRAME_EDGE -
-    right_button_count() * (CTRL_W + CTRL_GAP) + CTRL_GAP;
+  return frame_width(w) - 2 * FRAME_EDGE - 2 * (CTRL_W + CTRL_GAP) + CTRL_GAP;
 }
 
 static void draw_titlebar (Win3Window *w) {
@@ -490,41 +474,29 @@ static void draw_titlebar (Win3Window *w) {
   GC gc;
   int title_width, text_x, text_y, max_text_width, len;
   unsigned long bg = (w == active_win) ? C_ACTIVE_TITLE : C_INACTIVE;
-
   if (!w->titlebar || !XGetWindowAttributes(dpy, w->titlebar, &a)) return;
   title_width = a.width;
   gc = XCreateGC(dpy, w->titlebar, 0, NULL);
-
   XSetForeground(dpy, gc, bg);
-  XFillRectangle(dpy, w->titlebar, gc, 0, 0,
-                 (unsigned)title_width, (unsigned)TITLE_H);
-
+  XFillRectangle(dpy, w->titlebar, gc, 0, 0, (unsigned)title_width, (unsigned)TITLE_H);
   draw_control_box(w->titlebar, gc, 0);
-
   {
-    int x = buttons_left(w) - FRAME_EDGE;
+    int x = buttons_left(w) /*- FRAME_EDGE*/;
     draw_min_button(w->titlebar, gc, x, 0);
     x += CTRL_W + CTRL_GAP;
     draw_max_button(w->titlebar, gc, x, 0, w->state == STATE_MAXIMIZED);
-#if WIN3_SHOW_CLOSE_BUTTON
-    x += CTRL_W + CTRL_GAP;
-    draw_close_button(w->titlebar, gc, x, 0);
-#endif
   }
-
   if (font_info && w->title) {
     text_x = CTRL_W + 6;
     text_y = (TITLE_H + font_info->ascent - font_info->descent) / 2;
-    max_text_width = buttons_left(w) - FRAME_EDGE - text_x - 4;
+    max_text_width = buttons_left(w) /*- FRAME_EDGE*/ - text_x - 4;
     len = (int)strlen(w->title);
     while (len > 0 && XTextWidth(font_info, w->title, len) > max_text_width) --len;
-
     XSetFont(dpy, gc, font_info->fid);
     XSetForeground(dpy, gc, (w == active_win) ? C_WHITE : C_BLACK);
     if (len > 0)
       XDrawString(dpy, w->titlebar, gc, text_x, text_y, w->title, len);
   }
-
   XFreeGC(dpy, gc);
 }
 
@@ -533,18 +505,13 @@ static void draw_frame (Win3Window *w) {
   GC gc;
   int fw = frame_width(w), fh = frame_height(w);
   gc = XCreateGC(dpy, w->frame, 0, NULL);
-
   XSetForeground(dpy, gc, C_FACE);
   XFillRectangle(dpy, w->frame, gc, 0, 0, (unsigned)fw, (unsigned)fh);
-
   XSetForeground(dpy, gc, C_BLACK);
   XDrawRectangle(dpy, w->frame, gc, 0, 0, (unsigned)(fw - 1), (unsigned)(fh - 1));
   draw_bevel(w->frame, gc, 1, 1, fw - 2, fh - 2, 1);
-
   XSetForeground(dpy, gc, C_BLACK);
-  XDrawRectangle(dpy, w->frame, gc,
-                 FRAME_EDGE - 1, FRAME_EDGE + TITLE_H - 1,
-                 (unsigned)(w->width + 1), (unsigned)(w->height + 1));
+  XDrawRectangle(dpy, w->frame, gc, FRAME_EDGE - 1, FRAME_EDGE + TITLE_H - 1, (unsigned)(w->width + 1), (unsigned)(w->height + 1));
   XFreeGC(dpy, gc);
 }
 
@@ -760,12 +727,9 @@ static void apply_geometry (Win3Window *w) {
   int fy = w->y - FRAME_EDGE - TITLE_H;
   int fw = frame_width(w);
   int fh = frame_height(w);
-
   XMoveResizeWindow(dpy, w->frame, fx, fy, (unsigned)fw, (unsigned)fh);
-  XMoveResizeWindow(dpy, w->titlebar, FRAME_EDGE, FRAME_EDGE,
-                    (unsigned)(fw - 2 * FRAME_EDGE), (unsigned)TITLE_H);
-  XMoveResizeWindow(dpy, w->client, client_off_x(), client_off_y(),
-                    (unsigned)MAX(1, w->width), (unsigned)MAX(1, w->height));
+  XMoveResizeWindow(dpy, w->titlebar, FRAME_EDGE, FRAME_EDGE, (unsigned)(fw - 2 * FRAME_EDGE), (unsigned)TITLE_H);
+  XMoveResizeWindow(dpy, w->client, client_off_x(), client_off_y(), (unsigned)MAX(1, w->width), (unsigned)MAX(1, w->height));
   send_configure(w);
 }
 
@@ -777,8 +741,7 @@ static void read_normal_hints (Win3Window *w) {
       w->x = hints.x;
       w->y = hints.y;
     }
-    if (((hints.flags & PSize) || (hints.flags & USSize)) &&
-        hints.width > 0 && hints.height > 0) {
+    if (((hints.flags & PSize) || (hints.flags & USSize)) && hints.width > 0 && hints.height > 0) {
       w->width = hints.width;
       w->height = hints.height;
     }
@@ -826,8 +789,7 @@ static Win3Window *manage (Window client) {
   fa.override_redirect = True;
   fa.background_pixel = C_FACE;
   /* allowing the parent to act when its child window dynamically changes */
-  fa.event_mask = ExposureMask | ButtonPressMask | ButtonReleaseMask |
-    PointerMotionMask | StructureNotifyMask | SubstructureRedirectMask;
+  fa.event_mask = ExposureMask | ButtonPressMask | ButtonReleaseMask | PointerMotionMask | StructureNotifyMask | SubstructureRedirectMask;
   w->frame = XCreateWindow(dpy, root, fx, fy,
                            (unsigned)frame_width(w), (unsigned)frame_height(w),
                            0, CopyFromParent, InputOutput, CopyFromParent,
@@ -835,15 +797,13 @@ static Win3Window *manage (Window client) {
   XDefineCursor(dpy, w->frame, root_cursor);
   memset(&ta, 0, sizeof(ta));
   ta.background_pixel = C_ACTIVE_TITLE;
-  ta.event_mask = ExposureMask | ButtonPressMask | ButtonReleaseMask |
-    PointerMotionMask;
+  ta.event_mask = ExposureMask | ButtonPressMask | ButtonReleaseMask | PointerMotionMask;
   w->titlebar = XCreateWindow(dpy, w->frame, FRAME_EDGE, FRAME_EDGE,
                               (unsigned)(frame_width(w) - 2 * FRAME_EDGE),
                               TITLE_H, 0, CopyFromParent, InputOutput,
                               CopyFromParent, CWBackPixel | CWEventMask, &ta);
   XDefineCursor(dpy, w->titlebar, root_cursor);
-  XSelectInput(dpy, client, PropertyChangeMask | StructureNotifyMask |
-               FocusChangeMask);
+  XSelectInput(dpy, client, PropertyChangeMask | StructureNotifyMask | FocusChangeMask);
   /* Clean the client up if it vanished while manage() was being assembled */
   if (!change_save_set_safely(client, SetModeInsert)) {
     XDestroyWindow(dpy, w->frame);
@@ -874,7 +834,6 @@ static void unmanage (Win3Window *w, int client_destroyed) {
   Win3Window **p;
   if (!w) return;
   if (alt_tab_active) end_alt_tab();
-
   if (active_win == w) active_win = NULL;
   if (drag_win == w) { drag_win = NULL; dragging = 0; }
   if (resize_win == w) {
@@ -950,16 +909,12 @@ static int control_box_hit (int x, int y) {
 }
 
 static int title_button_at (Win3Window *w, int x, int y) {
-  int bx = buttons_left(w) - FRAME_EDGE;
+  int bx = buttons_left(w) /*- FRAME_EDGE*/;
   int bw = CTRL_W - 2;
   if (y < 1 || y >= CTRL_H - 1) return 0;
   if (x >= bx && x < bx + bw) return 1; /* min */
   bx += CTRL_W + CTRL_GAP;
   if (x >= bx && x < bx + bw) return 2; /* max/restore */
-#if WIN3_SHOW_CLOSE_BUTTON
-  bx += CTRL_W + CTRL_GAP;
-  if (x >= bx && x < bx + bw) return 3;
-#endif
   return 0;
 }
 
@@ -978,7 +933,6 @@ static void constrain_resize_size (Win3Window *w, int *cw, int *ch) {
   XSizeHints h;
   long supplied = 0;
   int basew = 0, baseh = 0;
-
   if (!XGetWMNormalHints(dpy, w->client, &h, &supplied)) return;
   if ((h.flags & PMinSize)) {
     if (*cw < h.min_width) *cw = h.min_width;
@@ -1005,8 +959,7 @@ static void draw_resize_outline (void) {
     gcv.subwindow_mode = IncludeInferiors;
     resize_gc = XCreateGC(dpy, root, GCFunction | GCForeground | GCSubwindowMode, &gcv);
   }
-  XDrawRectangle(dpy, root, resize_gc, resize_x, resize_y,
-                 (unsigned)MAX(1, resize_w - 1), (unsigned)MAX(1, resize_h - 1));
+  XDrawRectangle(dpy, root, resize_gc, resize_x, resize_y, (unsigned)MAX(1, resize_w - 1), (unsigned)MAX(1, resize_h - 1));
 }
 
 static void start_resize (Win3Window *w, XButtonEvent *e) {
@@ -1015,7 +968,6 @@ static void start_resize (Win3Window *w, XButtonEvent *e) {
   if (!w || w->state != STATE_NORMAL || e->button != Button1) return;
   edges = resize_edges_at(w, e->x, e->y);
   if (!edges || !XGetWindowAttributes(dpy, w->frame, &a)) return;
-
   focus_window(w);
   resizing = 1;
   resize_win = w;
@@ -1026,8 +978,7 @@ static void start_resize (Win3Window *w, XButtonEvent *e) {
   resize_start_y = resize_y = a.y;
   resize_start_w = resize_w = a.width;
   resize_start_h = resize_h = a.height;
-  XGrabPointer(dpy, w->frame, False, PointerMotionMask | ButtonReleaseMask,
-               GrabModeAsync, GrabModeAsync, None, None, CurrentTime);
+  XGrabPointer(dpy, w->frame, False, PointerMotionMask | ButtonReleaseMask, GrabModeAsync, GrabModeAsync, None, None, CurrentTime);
   draw_resize_outline();
 }
 
@@ -1036,7 +987,6 @@ static void update_resize (int x_root, int y_root) {
   int right = resize_start_x + resize_start_w;
   int bottom = resize_start_y + resize_start_h;
   if (!resizing || !resize_win) return;
-
   draw_resize_outline();
   dx = x_root - resize_start_x_root;
   dy = y_root - resize_start_y_root;
@@ -1046,7 +996,6 @@ static void update_resize (int x_root, int y_root) {
   if (resize_edges & RESIZE_RIGHT)  fw += dx;
   if (resize_edges & RESIZE_TOP)    { y += dy; fh -= dy; }
   if (resize_edges & RESIZE_BOTTOM) fh += dy;
-
   cw = MAX(1, fw - 2 * FRAME_EDGE);
   ch = MAX(1, fh - TITLE_H - 2 * FRAME_EDGE);
   constrain_resize_size(resize_win, &cw, &ch);
@@ -1054,20 +1003,18 @@ static void update_resize (int x_root, int y_root) {
   fh = ch + TITLE_H + 2 * FRAME_EDGE;
   if (resize_edges & RESIZE_LEFT) x = right - fw;
   if (resize_edges & RESIZE_TOP) y = bottom - fh;
-
   resize_x = x; resize_y = y; resize_w = fw; resize_h = fh;
-  draw_resize_outline();                 /* draw new outline */
+  draw_resize_outline(); // draw new outline
 }
 
 static void finish_resize (void) {
   Win3Window *w = resize_win;
   if (!resizing) return;
-  draw_resize_outline();                 /* erase final outline */
+  draw_resize_outline(); // erase final outline
   XUngrabPointer(dpy, CurrentTime);
   resizing = 0;
   resize_win = NULL;
   if (!w) return;
-
   w->x = resize_x + FRAME_EDGE;
   w->y = resize_y + FRAME_EDGE + TITLE_H;
   w->width = MAX(1, resize_w - 2 * FRAME_EDGE);
@@ -1094,14 +1041,9 @@ static void handle_title_press (Win3Window *w, XButtonEvent *e) {
     }
     return;
   }
-
   button = title_button_at(w, e->x, e->y);
   if (button == 1) { minimize_window(w); return; }
   if (button == 2) { maximize_or_restore(w); return; }
-#if WIN3_SHOW_CLOSE_BUTTON
-  if (button == 3) { send_delete(w); return; }
-#endif
-
   if (e->button == Button1 && w->state == STATE_NORMAL) {
     XWindowAttributes a;
     XGetWindowAttributes(dpy, w->frame, &a);
@@ -1111,9 +1053,7 @@ static void handle_title_press (Win3Window *w, XButtonEvent *e) {
     drag_start_y_root = e->y_root;
     drag_frame_x = a.x;
     drag_frame_y = a.y;
-    XGrabPointer(dpy, w->titlebar, False,
-                 PointerMotionMask | ButtonReleaseMask,
-                 GrabModeAsync, GrabModeAsync, None, None, CurrentTime);
+    XGrabPointer(dpy, w->titlebar, False, PointerMotionMask | ButtonReleaseMask, GrabModeAsync, GrabModeAsync, None, None, CurrentTime);
   }
 }
 
@@ -1129,7 +1069,6 @@ static void handle_configure_request (XConfigureRequestEvent *e) {
     XConfigureWindow(dpy, e->window, e->value_mask, &wc);
     return;
   }
-
   if (w->state == STATE_NORMAL) {
     if (e->value_mask & CWX) w->x = e->x;
     if (e->value_mask & CWY) w->y = e->y;
@@ -1142,7 +1081,6 @@ static void handle_configure_request (XConfigureRequestEvent *e) {
   } else {
     send_configure(w);
   }
-
   if (e->value_mask & CWStackMode) {
     XWindowChanges wc;
     memset(&wc, 0, sizeof(wc));
@@ -1179,23 +1117,19 @@ static void end_alt_tab (void) {
 static int build_alt_tab_list (void) {
   Win3Window *w;
   int i = 0;
-
   end_alt_tab();
   for (w = windows; w; w = w->next) ++alt_tab_count;
   if (alt_tab_count < 2) {
     alt_tab_count = 0;
     return 0;
   }
-
   alt_tab_list = malloc((size_t)alt_tab_count * sizeof(*alt_tab_list));
   if (!alt_tab_list) {
     alt_tab_count = 0;
     return 0;
   }
-
   for (w = windows; w; w = w->next) alt_tab_list[i++] = w;
   qsort(alt_tab_list, (size_t)alt_tab_count, sizeof(*alt_tab_list), focus_seq_cmp);
-
   /* Make the current application the starting point */
   if (active_win) {
     for (i = 0; i < alt_tab_count; ++i) {
@@ -1207,7 +1141,6 @@ static int build_alt_tab_list (void) {
       }
     }
   }
-
   alt_tab_index = 0;
   alt_tab_active = 1;
   return 1;
@@ -1223,17 +1156,14 @@ static void switch_to_window (Win3Window *w) {
 static void select_window_or_icon (Win3Window *w) {
   Win3Window *old = active_win;
   if (!w) return;
-
   if (w->state != STATE_MINIMIZED) {
     focus_window(w);
     return;
   }
-
   active_win = w;
   w->focus_seq = ++next_focus_seq;
   XSetInputFocus(dpy, root, RevertToPointerRoot, CurrentTime);
   if (w->iconwin) XRaiseWindow(dpy, w->iconwin);
-
   if (old && old != w) {
     if (old->state == STATE_MINIMIZED) draw_icon(old);
     else draw_titlebar(old);
@@ -1245,7 +1175,6 @@ static void handle_alt_esc (void) {
   Win3Window *w;
   if (!windows) return;
   if (!active_win) { select_window_or_icon(windows); return; }
-
   for (w = windows; w; w = w->next)
     if (w == active_win) {
       select_window_or_icon(w->next ? w->next : windows);
@@ -1257,7 +1186,6 @@ static void handle_alt_esc (void) {
 static void handle_alt_tab (int backwards) {
   if (!alt_tab_active && !build_alt_tab_list()) return;
   if (!alt_tab_list || alt_tab_count < 2) return;
-
   if (backwards) {
     --alt_tab_index;
     if (alt_tab_index < 0) alt_tab_index = alt_tab_count - 1;
@@ -1298,7 +1226,8 @@ static void draw_task_button (GC gc, int x, int y, const char *label) {
   int tw = font_info ? XTextWidth(font_info, label, len) : 0;
   int tx = x + (TASK_BTN_W - tw) / 2;
   int ty = y + (TASK_BTN_H + (font_info ? font_info->ascent - font_info->descent : 8)) / 2;
-
+  XSetForeground(dpy, gc, C_BLACK);
+  XDrawRectangle(dpy, task_win, gc, x - 1, y - 1, TASK_BTN_W + 1, TASK_BTN_H + 1);
   XSetForeground(dpy, gc, C_FACE);
   XFillRectangle(dpy, task_win, gc, x, y, TASK_BTN_W, TASK_BTN_H);
   draw_bevel(task_win, gc, x, y, TASK_BTN_W, TASK_BTN_H, 1);
@@ -1312,7 +1241,6 @@ static void draw_task_list (void) {
   int n = task_count();
   int rows = TASK_LIST_H / TASK_ROW_H;
   int i, visible;
-
   if (!task_open || !task_win) return;
   if (n <= 0) { task_selected = task_top = 0; }
   else {
@@ -1321,9 +1249,7 @@ static void draw_task_list (void) {
     if (task_selected < task_top) task_top = task_selected;
     if (task_selected >= task_top + rows) task_top = task_selected - rows + 1;
   }
-
   gc = XCreateGC(dpy, task_win, 0, NULL);
-
   /* border */
   XSetForeground(dpy, gc, C_BLACK);
   XFillRectangle(dpy, task_win, gc, 0, 0, TASK_W, TASK_H);
@@ -1331,27 +1257,25 @@ static void draw_task_list (void) {
   XFillRectangle(dpy, task_win, gc, 1, 1, TASK_W - 2, TASK_H - 2);
   XSetForeground(dpy, gc, C_WHITE);
   XFillRectangle(dpy, task_win, gc, 4, 4, TASK_W - 8, TASK_H - 8);
-
   /* control box */
   XSetForeground(dpy, gc, C_ACTIVE_TITLE);
   XFillRectangle(dpy, task_win, gc, 5, 5, TASK_W - 10, 20);
   XSetForeground(dpy, gc, C_FACE);
   XFillRectangle(dpy, task_win, gc, 8, 7, CTRL_W - 2, CTRL_H - 2);
   draw_bevel(task_win, gc, 8, 7, CTRL_W - 2, CTRL_H - 2, 1);
+  XSetForeground(dpy, gc, C_WHITE);
+  XFillRectangle(dpy, task_win, gc, 8 + 3, 7 + 6, 10, 2);
   XSetForeground(dpy, gc, C_BLACK);
   XDrawRectangle(dpy, task_win, gc, 8 + 3, 7 + 6, 10, 2);
-
   /* title */
   if (font_info) XSetFont(dpy, gc, font_info->fid);
   XSetForeground(dpy, gc, C_WHITE);
   XDrawString(dpy, task_win, gc, TASK_MARGIN + CTRL_W + 6, 18, "Task List", 9);
-
   /* list of apps */
   XSetForeground(dpy, gc, C_WHITE);
   XFillRectangle(dpy, task_win, gc, TASK_MARGIN, TASK_LIST_Y, TASK_W - 2 * TASK_MARGIN, TASK_LIST_H);
   XSetForeground(dpy, gc, C_BLACK);
   XDrawRectangle(dpy, task_win, gc, TASK_MARGIN, TASK_LIST_Y, TASK_W - 2 * TASK_MARGIN - 1, TASK_LIST_H - 1);
-
   visible = n - task_top;
   if (visible > rows) visible = rows;
   for (i = 0; i < visible; ++i) {
@@ -1361,29 +1285,24 @@ static void draw_task_list (void) {
     int baseline = y + (font_info ? font_info->ascent + 1 : 11);
     int len;
     if (!w || !w->title) continue;
-
     if (idx == task_selected) {
       XSetForeground(dpy, gc, C_BLACK); // C_ACTIVE_TITLE
-      XFillRectangle(dpy, task_win, gc, TASK_MARGIN + 2, y,
-                     TASK_W - 2 * TASK_MARGIN - 4, TASK_ROW_H);
+      XFillRectangle(dpy, task_win, gc, TASK_MARGIN + 2, y, TASK_W - 2 * TASK_MARGIN - 4, TASK_ROW_H);
       XSetForeground(dpy, gc, C_WHITE);
     } else XSetForeground(dpy, gc, C_BLACK);
-
     len = (int)strlen(w->title);
-    while (len > 0 && font_info &&
-           XTextWidth(font_info, w->title, len) > TASK_W - 2 * TASK_MARGIN - 8) --len;
+    while (len > 0 && font_info && XTextWidth(font_info, w->title, len) > TASK_W - 2 * TASK_MARGIN - 8) --len;
     if (len) XDrawString(dpy, task_win, gc, TASK_MARGIN + 4, baseline, w->title, len);
   }
-
   /* buttons */
   draw_task_button(gc, TASK_MARGIN, 178, "Switch To");
   draw_task_button(gc, TASK_MARGIN + TASK_BTN_W + TASK_GAP, 178, "End Task");
   draw_task_button(gc, TASK_MARGIN + 2 * (TASK_BTN_W + TASK_GAP), 178, "Cancel");
-
+  XSetForeground(dpy, gc, C_BLACK);
+  XFillRectangle(dpy, task_win, gc, 4, 206, TASK_W - 8, 3);
   draw_task_button(gc, TASK_MARGIN, 214, "Cascade");
   draw_task_button(gc, TASK_MARGIN + TASK_BTN_W + TASK_GAP, 214, "Tile");
   draw_task_button(gc, TASK_MARGIN + 2 * (TASK_BTN_W + TASK_GAP), 214, "Arrange Icons");
-
   XFreeGC(dpy, gc);
 }
 
@@ -1401,10 +1320,8 @@ static void show_task_list (void) {
   XWindowAttributes ra;
   XSetWindowAttributes a;
   int idx;
-
   if (task_open) { close_task_list(); return; }
   if (!XGetWindowAttributes(dpy, root, &ra)) return;
-
   if (!task_win) {
     memset(&a, 0, sizeof(a));
     a.override_redirect = True;
@@ -1418,7 +1335,6 @@ static void show_task_list (void) {
   } else {
     XMoveWindow(dpy, task_win, (ra.width - TASK_W) / 2, (ra.height - TASK_H) / 2);
   }
-
   idx = task_index_of(active_win);
   task_selected = idx >= 0 ? idx : 0;
   task_top = 0;
@@ -1449,7 +1365,6 @@ static void cascade_windows (void) {
   int n = visible_task_count(), i = 0;
   int step = TITLE_H + 3, ww, hh;
   if (!n || !XGetWindowAttributes(dpy, root, &ra)) return;
-
   ww = MAX(160, ra.width - step * MAX(1, n - 1) - 2 * FRAME_EDGE);
   hh = MAX(100, ra.height - step * MAX(1, n - 1) - TITLE_H - 2 * FRAME_EDGE);
   for (w = windows; w; w = w->next) {
@@ -1473,12 +1388,10 @@ static void tile_windows (void) {
   int n = visible_task_count(), cols = 1, rows, i = 0;
   int cw, ch;
   if (!n || !XGetWindowAttributes(dpy, root, &ra)) return;
-
   while (cols * cols < n) ++cols;
   rows = (n + cols - 1) / cols;
   cw = MAX(1, ra.width / cols);
   ch = MAX(1, ra.height / rows);
-
   for (w = windows; w; w = w->next) {
     int col, row;
     if (w->state == STATE_MINIMIZED) continue;
@@ -1518,7 +1431,6 @@ static void task_button_press (XButtonEvent *e) {
     }
     return;
   }
-
   if (y >= 178 && y < 178 + TASK_BTN_H) {
     if (x < TASK_MARGIN + TASK_BTN_W) task_switch_selected();
     else if (x < TASK_MARGIN + 2 * TASK_BTN_W + TASK_GAP) {
@@ -1538,7 +1450,6 @@ static void task_key_press (XKeyEvent *e) {
   KeySym ks = XLookupKeysym(e, 0);
   int n = task_count();
   int rows = TASK_LIST_H / TASK_ROW_H;
-
   if (ks == XK_Escape) close_task_list();
   else if (ks == XK_Return || ks == XK_KP_Enter) task_switch_selected();
   else if (ks == XK_Up && n) {
@@ -1559,7 +1470,6 @@ static unsigned int numlock_mask (void) {
   KeyCode numlock;
   unsigned int mask = 0;
   int mod, key;
-
   numlock = XKeysymToKeycode(dpy, XK_Num_Lock);
   map = XGetModifierMapping(dpy);
   if (!map) return 0;
@@ -1583,21 +1493,15 @@ static void grab_task_switch_keys (void) {
   unsigned int nl = numlock_mask();
   unsigned int extras[4];
   int i;
-
   extras[0] = 0;
   extras[1] = LockMask;
   extras[2] = nl;
   extras[3] = LockMask | nl;
-
   for (i = 0; i < 4; ++i) {
-    XGrabKey(dpy, (int)tab, Mod1Mask | extras[i], root, True,
-             GrabModeAsync, GrabModeAsync);
-    XGrabKey(dpy, (int)tab, Mod1Mask | ShiftMask | extras[i], root, True,
-             GrabModeAsync, GrabModeAsync);
-    XGrabKey(dpy, (int)esc, Mod1Mask | extras[i], root, True,
-             GrabModeAsync, GrabModeAsync);
-    XGrabKey(dpy, (int)esc, ControlMask | extras[i], root, True,
-             GrabModeAsync, GrabModeAsync);
+    XGrabKey(dpy, (int)tab, Mod1Mask | extras[i], root, True, GrabModeAsync, GrabModeAsync);
+    XGrabKey(dpy, (int)tab, Mod1Mask | ShiftMask | extras[i], root, True, GrabModeAsync, GrabModeAsync);
+    XGrabKey(dpy, (int)esc, Mod1Mask | extras[i], root, True, GrabModeAsync, GrabModeAsync);
+    XGrabKey(dpy, (int)esc, ControlMask | extras[i], root, True, GrabModeAsync, GrabModeAsync);
   }
 }
 
@@ -1739,12 +1643,10 @@ static void event_loop (void) {
       Win3Window *w = find_client(ev.xfocus.window);
       Window actual_focus;
       int revert_to;
-
       /* FocusIn events can be stale after a fast ALT+TAB sequence */
       if (!w || w->state == STATE_MINIMIZED) break;
       XGetInputFocus(dpy, &actual_focus, &revert_to);
       if (actual_focus != w->client) break;
-
       if (w != active_win) {
         Win3Window *old = active_win;
         active_win = w;
@@ -1812,8 +1714,7 @@ int main (int argc, char **argv) {
   /* WM ownership before installing the runtime handler */
   XSetErrorHandler(xerror);
   memset(&ra, 0, sizeof(ra));
-  ra.event_mask = SubstructureRedirectMask | SubstructureNotifyMask |
-    StructureNotifyMask | ButtonPressMask;
+  ra.event_mask = SubstructureRedirectMask | SubstructureNotifyMask | StructureNotifyMask | ButtonPressMask;
   XChangeWindowAttributes(dpy, root, CWEventMask, &ra);
   XSync(dpy, False);
 
@@ -1828,8 +1729,7 @@ int main (int argc, char **argv) {
   if (XQueryTree(dpy, root, &dummy1, &dummy2, &children, &nchildren)) {
     for (i = 0; i < nchildren; ++i) {
       XWindowAttributes a;
-      if (XGetWindowAttributes(dpy, children[i], &a) &&
-          !a.override_redirect && a.class != InputOnly && a.map_state == IsViewable)
+      if (XGetWindowAttributes(dpy, children[i], &a) && !a.override_redirect && a.class != InputOnly && a.map_state == IsViewable)
         manage(children[i]);
     }
     if (children) XFree(children);
@@ -1837,21 +1737,16 @@ int main (int argc, char **argv) {
 
   /* EWMH compliance so clients can detect when the WM is ready */
   {
-    Window wm_check = XCreateSimpleWindow(dpy, root, -100, -100, 1, 1, 0,
-                                          CopyFromParent, CopyFromParent);
+    Window wm_check = XCreateSimpleWindow(dpy, root, -100, -100, 1, 1, 0, CopyFromParent, CopyFromParent);
     Atom check_atom = XInternAtom(dpy, "_NET_SUPPORTING_WM_CHECK", False);
     Atom utf8_atom  = XInternAtom(dpy, "UTF8_STRING", False);
     Atom wm_name_atom = XInternAtom(dpy, "_NET_WM_NAME", False);
     const char *wm_name = "win3wm";
-    XChangeProperty(dpy, root, check_atom, XA_WINDOW, 32, PropModeReplace,
-                    (unsigned char *)&wm_check, 1);
-    XChangeProperty(dpy, wm_check, check_atom, XA_WINDOW, 32, PropModeReplace,
-                    (unsigned char *)&wm_check, 1);
-    XChangeProperty(dpy, wm_check, wm_name_atom, utf8_atom, 8, PropModeReplace,
-                    (unsigned char *)wm_name, strlen(wm_name));
+    XChangeProperty(dpy, root, check_atom, XA_WINDOW, 32, PropModeReplace, (unsigned char *)&wm_check, 1);
+    XChangeProperty(dpy, wm_check, check_atom, XA_WINDOW, 32, PropModeReplace, (unsigned char *)&wm_check, 1);
+    XChangeProperty(dpy, wm_check, wm_name_atom, utf8_atom, 8, PropModeReplace, (unsigned char *)wm_name, strlen(wm_name));
     XFlush(dpy);
   }
-
   event_loop();
   return EXIT_SUCCESS;
 }

@@ -833,10 +833,11 @@ static void draw_group_title(Group *g) {
   /* Control menu box */
   fill_rect(tx + 2, ty + 2, bw, bh, COL_BTN);
   draw_bevel(tx + 2, ty + 2, bw, bh, 1);
+  fill_rect(tx + 5, ty + 8, 9, 3, COL_WHITE);
   draw_rect(tx + 5, ty + 8, 9, 3, COL_BLACK);
 
   /* Maximize button */
-  int bx = tx + tw - bw - 4;
+  int bx = tx + tw - bw - 2; // 4
   fill_rect(bx, ty + 2, bw, bh, COL_BTN);
   draw_bevel(bx, ty + 2, bw, bh, 1);
   XSetForeground(dpy, gc, COL_BLACK);
@@ -1329,7 +1330,7 @@ static int hit_title_button(Group *g, int mx, int my) {
   int ty = g->y + 6; // 2
   int tw = g->w - 4;
   int bw = 16, bh = 16;
-  int bx = tx + tw - bw - 5; // 4
+  int bx = tx + tw - bw - 3; // 5
   if (mx >= bx && mx <= bx + bw && my >= ty && my <= ty + bh) return 2;
   bx -= (bw + 2);
   if (mx >= bx && mx <= bx + bw && my >= ty && my <= ty + bh) return 1;
