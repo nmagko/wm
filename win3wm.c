@@ -37,7 +37,7 @@
 /* Constants and macros */
 /* ================================================================ */
 /* Compact geometry */
-#define FRAME_EDGE        4
+#define FRAME_EDGE        5
 #define TITLE_H          19
 #define CTRL_W           19 // 18
 #define CTRL_H           18 // 17
@@ -423,11 +423,13 @@ static void draw_bevel (Window window, GC gc, int x, int y, int width, int heigh
 }
 
 /* Short horizontal bar as a control menu */
-static void draw_control_box (Window window, GC gc, int pressed) {
+static void draw_control_box (Window window, GC gc/*, int pressed*/) {
   int x = 1, y = 1, w = CTRL_W - 2, h = CTRL_H - 2;
   XSetForeground(dpy, gc, C_FACE);
-  XFillRectangle(dpy, window, gc, x, y, (unsigned)w, (unsigned)h);
-  draw_bevel(window, gc, x, y, w, h, !pressed);
+  XFillRectangle(dpy, window, gc, x, y, (unsigned)w + 1, (unsigned)h + 1);
+  // draw_bevel(window, gc, x, y, w, h, !pressed);
+  XSetForeground(dpy, gc, C_BLACK);
+  XDrawRectangle(dpy, window, gc, x - 1, y - 1, (unsigned)w + 2, (unsigned)h + 2);
   XSetForeground(dpy, gc, C_WHITE);
   XFillRectangle(dpy, window, gc, x + 3, y + 6, (unsigned)(w - 7), 2);
   XSetForeground(dpy, gc, C_BLACK);
@@ -439,9 +441,10 @@ static void draw_min_button (Window window, GC gc, int x, int pressed) {
   int y = 1, w = CTRL_W - 2, h = CTRL_H - 2;
   XSetForeground(dpy, gc, C_FACE);
   XFillRectangle(dpy, window, gc, x, y, (unsigned)w, (unsigned)h);
-  draw_bevel(window, gc, x, y, w, h, !pressed);
+  draw_bevel(window, gc, x, y, w + 1, h + 1, !pressed);
   XSetForeground(dpy, gc, C_BLACK);
-  XPoint vertices[] = {{x + 4, y + 6}, {x + w / 2, y + 10}, {x + w - 5, y + 6}};
+  /* XPoint vertices[] = {{x + 4, y + 6}, {x + w / 2, y + 10}, {x + w - 5, y + 6}}; */
+  XPoint vertices[] = {{x + 5, y + 6}, {x + w / 2 + 1, y + 10}, {x + w - 4, y + 6}};
   XFillPolygon(dpy, window, gc, vertices, 3, Convex, CoordModeOrigin);
 }
 
@@ -450,17 +453,20 @@ static void draw_max_button (Window window, GC gc, int x, int pressed, int maxim
   int y = 1, w = CTRL_W - 2, h = CTRL_H - 2;
   XSetForeground(dpy, gc, C_FACE);
   XFillRectangle(dpy, window, gc, x, y, (unsigned)w, (unsigned)h);
-  draw_bevel(window, gc, x, y, w, h, !pressed);
+  draw_bevel(window, gc, x, y, w + 1, h + 1, !pressed);
   XSetForeground(dpy, gc, C_BLACK);
   if (!maximized) {
-    XPoint vertices[] = {{x + 3, y + 9}, {x + w / 2, y + 4}, {x + w - 4, y + 9}};
+    /* XPoint vertices[] = {{x + 3, y + 9}, {x + w / 2, y + 4}, {x + w - 4, y + 9}}; */
+    XPoint vertices[] = {{x + 4, y + 9}, {x + w / 2 + 1, y + 4}, {x + w - 3, y + 9}};
     XFillPolygon(dpy, window, gc, vertices, 3, Convex, CoordModeOrigin);
   } else {
     /* upper triangle */
-    XPoint uvertices[] = {{x + 3, y + 7}, {x + w / 2, y + 2}, {x + w - 4, y + 7}};
+    /* XPoint uvertices[] = {{x + 3, y + 7}, {x + w / 2, y + 2}, {x + w - 4, y + 7}}; */
+    XPoint uvertices[] = {{x + 4, y + 7}, {x + w / 2 + 1, y + 2}, {x + w - 3, y + 7}};
     XFillPolygon(dpy, window, gc, uvertices, 3, Convex, CoordModeOrigin);
     /* lower triangle */
-    XPoint lvertices[] = {{x + 4, y + 9}, {x + w / 2, y + 13}, {x + w - 5, y + 9}};
+    /* XPoint lvertices[] = {{x + 4, y + 9}, {x + w / 2, y + 13}, {x + w - 5, y + 9}}; */
+    XPoint lvertices[] = {{x + 5, y + 9}, {x + w / 2 + 1, y + 13}, {x + w - 4, y + 9}};
     XFillPolygon(dpy, window, gc, lvertices, 3, Convex, CoordModeOrigin);
   }
 }
@@ -479,7 +485,9 @@ static void draw_titlebar (Win3Window *w) {
   gc = XCreateGC(dpy, w->titlebar, 0, NULL);
   XSetForeground(dpy, gc, bg);
   XFillRectangle(dpy, w->titlebar, gc, 0, 0, (unsigned)title_width, (unsigned)TITLE_H);
-  draw_control_box(w->titlebar, gc, 0);
+  XSetForeground(dpy, gc, C_BLACK);
+  XDrawRectangle(dpy, w->titlebar, gc, -1, -1, (unsigned)title_width + 2, (unsigned)TITLE_H);
+  draw_control_box(w->titlebar, gc/*, 0*/);
   {
     int x = buttons_left(w) /*- FRAME_EDGE*/;
     draw_min_button(w->titlebar, gc, x, 0);
@@ -505,11 +513,13 @@ static void draw_frame (Win3Window *w) {
   GC gc;
   int fw = frame_width(w), fh = frame_height(w);
   gc = XCreateGC(dpy, w->frame, 0, NULL);
-  XSetForeground(dpy, gc, C_FACE);
+  XSetForeground(dpy, gc, C_DARKGRAY); // C_FACE
   XFillRectangle(dpy, w->frame, gc, 0, 0, (unsigned)fw, (unsigned)fh);
   XSetForeground(dpy, gc, C_BLACK);
   XDrawRectangle(dpy, w->frame, gc, 0, 0, (unsigned)(fw - 1), (unsigned)(fh - 1));
-  draw_bevel(w->frame, gc, 1, 1, fw - 2, fh - 2, 1);
+  // draw_bevel(w->frame, gc, 1, 1, fw - 2, fh - 2, 1);
+  XSetForeground(dpy, gc, C_BLACK);
+  XDrawRectangle(dpy, w->frame, gc, FRAME_EDGE - 1, FRAME_EDGE - 1, (unsigned)(w->width + 1), (unsigned)(w->height + TITLE_H + 1));
   XSetForeground(dpy, gc, C_BLACK);
   XDrawRectangle(dpy, w->frame, gc, FRAME_EDGE - 1, FRAME_EDGE + TITLE_H - 1, (unsigned)(w->width + 1), (unsigned)(w->height + 1));
   XFreeGC(dpy, gc);
@@ -905,13 +915,16 @@ static void minimize_window (Win3Window *w) {
 }
 
 static int control_box_hit (int x, int y) {
-  return x >= 1 && x < CTRL_W - 1 && y >= 1 && y < CTRL_H - 1;
+  /* return x >= 1 && x < CTRL_W - 1 && y >= 1 && y < CTRL_H - 1; */
+  return x >= 1 && x <= CTRL_W && y >= 1 && y <= CTRL_H;
 }
 
 static int title_button_at (Win3Window *w, int x, int y) {
   int bx = buttons_left(w) /*- FRAME_EDGE*/;
-  int bw = CTRL_W - 2;
-  if (y < 1 || y >= CTRL_H - 1) return 0;
+  /* int bw = CTRL_W - 2; */
+  /* if (y < 1 || y >= CTRL_H - 1) return 0; */
+  int bw = CTRL_W;
+  if (y < 1 || y > CTRL_H) return 0;
   if (x >= bx && x < bx + bw) return 1; /* min */
   bx += CTRL_W + CTRL_GAP;
   if (x >= bx && x < bx + bw) return 2; /* max/restore */
@@ -1259,10 +1272,12 @@ static void draw_task_list (void) {
   XFillRectangle(dpy, task_win, gc, 4, 4, TASK_W - 8, TASK_H - 8);
   /* control box */
   XSetForeground(dpy, gc, C_ACTIVE_TITLE);
-  XFillRectangle(dpy, task_win, gc, 5, 5, TASK_W - 10, 20);
+  XFillRectangle(dpy, task_win, gc, 5, 5, TASK_W - 10, 19);
   XSetForeground(dpy, gc, C_FACE);
-  XFillRectangle(dpy, task_win, gc, 8, 7, CTRL_W - 2, CTRL_H - 2);
-  draw_bevel(task_win, gc, 8, 7, CTRL_W - 2, CTRL_H - 2, 1);
+  XFillRectangle(dpy, task_win, gc, 7, 6, CTRL_W - 1, CTRL_H - 1);
+  // draw_bevel(task_win, gc, 8, 7, CTRL_W - 2, CTRL_H - 2, 1);
+  XSetForeground(dpy, gc, C_BLACK);
+  XDrawRectangle(dpy, task_win, gc, 6, 5, CTRL_W, CTRL_H);
   XSetForeground(dpy, gc, C_WHITE);
   XFillRectangle(dpy, task_win, gc, 8 + 3, 7 + 6, 10, 2);
   XSetForeground(dpy, gc, C_BLACK);
@@ -1299,7 +1314,7 @@ static void draw_task_list (void) {
   draw_task_button(gc, TASK_MARGIN + TASK_BTN_W + TASK_GAP, 178, "End Task");
   draw_task_button(gc, TASK_MARGIN + 2 * (TASK_BTN_W + TASK_GAP), 178, "Cancel");
   XSetForeground(dpy, gc, C_BLACK);
-  XFillRectangle(dpy, task_win, gc, 4, 206, TASK_W - 8, 3);
+  XFillRectangle(dpy, task_win, gc, 4, 207, TASK_W - 8, 2);
   draw_task_button(gc, TASK_MARGIN, 214, "Cascade");
   draw_task_button(gc, TASK_MARGIN + TASK_BTN_W + TASK_GAP, 214, "Tile");
   draw_task_button(gc, TASK_MARGIN + 2 * (TASK_BTN_W + TASK_GAP), 214, "Arrange Icons");

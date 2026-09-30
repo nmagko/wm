@@ -54,13 +54,13 @@
 #define DEF_WIN_H 620
 
 #define MENUBAR_H 24
-#define TITLEBAR_H 21 // 19
+#define TITLEBAR_H 19 // 21
 #define ICON_SIZE 32
 #define ROW_H 16
 #define CHAR_W 7 // 8
 #define GROUP_ICON_W 40
 #define GROUP_ICON_H 56
-#define SCROLLBAR_W 16
+#define SCROLLBAR_W 18 // 16
 
 /* MDI States */
 #define STATE_NORMAL 0
@@ -661,15 +661,15 @@ static void draw_app_window(int ix, int iy) {
 /* Windows 3.0 drawing content */
 static void draw_group_content(Group *g) {
   int w = g->w, h = g->h;
-  int base_y = g->y + TITLEBAR_H;
-  int content_h = h - TITLEBAR_H - 2;
-  int content_w = w - 4;
+  int base_y = g->y + TITLEBAR_H + 2;
+  int content_h = h - TITLEBAR_H - 2 - 4;
+  int content_w = w - 4 - 2 - 2;
   int has_scroll = (g->max_scroll > 0);
   int sb_w = has_scroll ? SCROLLBAR_W : 0;
 
   if (has_scroll) content_w -= sb_w;
 
-  fill_rect(g->x + 2 + 1, base_y + 1, w - 4 - 2, content_h - 2, COL_WHITE);
+  fill_rect(g->x + 2 + 2, base_y, w - 4 - 4, content_h, COL_WHITE);
 
   /* Each column slot is 104 px wide */
   int slot_w = 104;
@@ -770,29 +770,39 @@ static void draw_group_content(Group *g) {
 
   /* Scrollbar */
   if (has_scroll) {
-    int sb_x = g->x + w - 2 - SCROLLBAR_W;
+    int sb_x = g->x + w - 2 - SCROLLBAR_W - 2;
     int sb_y = base_y;
     int sb_h = content_h;
-
-    fill_rect(sb_x, sb_y, SCROLLBAR_W, sb_h, COL_BTN);
+    /* scroll lane */
+    fill_rect(sb_x, sb_y, SCROLLBAR_W, sb_h, COL_LIGHTGRAY); // COL_BTN
     draw_bevel(sb_x, sb_y, SCROLLBAR_W, sb_h, 0);
-
+    /* upper arrow */
     int arrow_h = 16;
     fill_rect(sb_x + 1, sb_y + 1, SCROLLBAR_W - 2, arrow_h, COL_BTN);
+    draw_bevel(sb_x + 1, sb_y + 1, SCROLLBAR_W - 2, arrow_h, 1);
     XSetForeground(dpy, gc, COL_BLACK);
-    XPoint up_pts[] = {{sb_x + 4, sb_y + arrow_h - 4},
-                       {sb_x + SCROLLBAR_W / 2, sb_y + 5},
-                       {sb_x + SCROLLBAR_W - 4, sb_y + arrow_h - 4}};
-    XFillPolygon(dpy, TARGET, gc, up_pts, 3, Convex, CoordModeOrigin);
-
+    XPoint up_pts[] = {{sb_x + 4, sb_y + arrow_h - 7},
+                       {sb_x + SCROLLBAR_W / 2, sb_y + 4},
+                       {sb_x + SCROLLBAR_W - 5, sb_y + arrow_h - 7},
+                       {sb_x + SCROLLBAR_W - 7, sb_y + arrow_h - 7},
+                       {sb_x + SCROLLBAR_W - 7, sb_y + arrow_h - 3},
+                       {sb_x + 7, sb_y + arrow_h - 3},
+                       {sb_x + 7, sb_y + arrow_h - 7}};
+    XFillPolygon(dpy, TARGET, gc, up_pts, 7, Convex, CoordModeOrigin);
+    /* lower arrow */
     int dn_y = sb_y + sb_h - arrow_h;
     fill_rect(sb_x + 1, dn_y, SCROLLBAR_W - 2, arrow_h - 1, COL_BTN);
-    XPoint dn_pts[] = {{sb_x + 5, dn_y + 4},
-                       {sb_x + SCROLLBAR_W / 2, dn_y + arrow_h - 6},
-                       {sb_x + SCROLLBAR_W - 4, dn_y + 4}};
+    draw_bevel(sb_x + 1, dn_y, SCROLLBAR_W - 2, arrow_h - 1, 1);
+    XPoint dn_pts[] = {{sb_x + 5, dn_y + 8},
+                       {sb_x + SCROLLBAR_W / 2, dn_y + arrow_h - 4},
+                       {sb_x + SCROLLBAR_W - 5, dn_y + 8},
+                       {sb_x + SCROLLBAR_W - 7, dn_y + 8},
+                       {sb_x + SCROLLBAR_W - 7, dn_y + 4},
+                       {sb_x + 7, dn_y + 4},
+                       {sb_x + 7, dn_y + 8}};
     XSetForeground(dpy, gc, COL_BLACK);
-    XFillPolygon(dpy, TARGET, gc, dn_pts, 3, Convex, CoordModeOrigin);
-
+    XFillPolygon(dpy, TARGET, gc, dn_pts, 7, Convex, CoordModeOrigin);
+    /* scroll puller */
     int track_y = sb_y + arrow_h;
     int track_h = sb_h - 2 * arrow_h;
     int thumb_h = (content_h * track_h) / (g->max_scroll + content_h);
@@ -802,7 +812,7 @@ static void draw_group_content(Group *g) {
     if (g->max_scroll > 0) {
       thumb_y += (g->scroll_offset * (track_h - thumb_h)) / g->max_scroll;
     }
-    fill_rect(sb_x + 1, thumb_y, SCROLLBAR_W - 2, thumb_h, COL_WHITE);
+    fill_rect(sb_x + 1, thumb_y, SCROLLBAR_W - 2, thumb_h, COL_BTN); // COL_WHITE
     draw_bevel(sb_x + 1, thumb_y, SCROLLBAR_W - 2, thumb_h, 1);
   }
 }
@@ -814,7 +824,8 @@ static void draw_group_title(Group *g) {
   int tw = g->w - 4 - 2;
   int th = TITLEBAR_H;
 
-  fill_rect(tx, ty, tw, th, is_active ? COL_ACTIVE_TITLE : COL_INACTIVE_TITLE);
+  fill_rect(tx + 1, ty + 1, tw - 2, th - 1, is_active ? COL_ACTIVE_TITLE : COL_INACTIVE_TITLE);
+  draw_rect(tx + 1, ty + 1, tw - 2, th - 1, COL_BLACK);
 
   /* Compute available width for title text */
   int left_w = 20; // control menu box
@@ -825,16 +836,17 @@ static void draw_group_title(Group *g) {
   char title_buf[128];
   fit_text(title_buf, g->name, avail);
 
-  XSetForeground(dpy, gc, COL_WHITE);
+  XSetForeground(dpy, gc, is_active ? COL_WHITE : COL_BLACK);
   draw_text(tx + left_w + 2, ty + 15, title_buf);
 
   int bw = 16, bh = 16;
 
   /* Control menu box */
   fill_rect(tx + 2, ty + 2, bw, bh, COL_BTN);
-  draw_bevel(tx + 2, ty + 2, bw, bh, 1);
-  fill_rect(tx + 5, ty + 8, 9, 3, COL_WHITE);
-  draw_rect(tx + 5, ty + 8, 9, 3, COL_BLACK);
+  // draw_bevel(tx + 2, ty + 2, bw, bh, 1);
+  draw_rect(tx + 1, ty + 1, bw + 2, bh + 2, COL_BLACK);
+  fill_rect(tx + 6, ty + 8, 7, 3, COL_WHITE);
+  draw_rect(tx + 6, ty + 8, 7, 3, COL_BLACK);
 
   /* Maximize button */
   int bx = tx + tw - bw - 2; // 4
@@ -861,14 +873,15 @@ static void draw_group_title(Group *g) {
 }
 
 static void draw_group_frame(Group *g) {
-  fill_rect(g->x, g->y, g->w, g->h, COL_FACE);
-  draw_bevel(g->x + 1, g->y + 1, g->w - 2, g->h - 2, 1);
+  fill_rect(g->x, g->y, g->w, g->h, COL_GRAY); // COL_FACE
   draw_rect(g->x, g->y, g->w, g->h, COL_BLACK);
+  // draw_bevel(g->x + 1, g->y + 1, g->w - 2, g->h - 2, 1);
+  draw_rect(g->x + 3, g->y + 3, g->w - 6, g->h - 6, COL_BLACK);
 }
 
 static void recalc_scroll(Group *g) {
-  int content_h = g->h - TITLEBAR_H - 2;
-  int content_w = g->w - 4;
+  int content_h = g->h - TITLEBAR_H - 2 - 4;
+  int content_w = g->w - 4 - 2 - 2;
   int slot_w = 104;
   int left_margin = 16;
   int icons_per_row;
@@ -1327,7 +1340,7 @@ static int hit_menu(int mx, int my, int *which) {
 
 static int hit_title_button(Group *g, int mx, int my) {
   int tx = g->x + 2;
-  int ty = g->y + 6; // 2
+  int ty = g->y + 7; // 2
   int tw = g->w - 4;
   int bw = 16, bh = 16;
   int bx = tx + tw - bw - 3; // 5
@@ -1531,7 +1544,6 @@ int main(int argc, char **argv) {
           int x = 6;
           const char *items[] = { "File", "Window", "Help" };
           for (int i = 0; i < menu_item; i++) x += strlen(items[i]) * CHAR_W + 12;
-
           if (menu_item == 0 && my >= MENUBAR_H && my < MENUBAR_H + 22) {
             if (mx >= x && mx < x + 150) { dlg_type = 2; }
           } else if (menu_item == 1 && my >= MENUBAR_H && my < MENUBAR_H + 44) {
@@ -1554,7 +1566,7 @@ int main(int argc, char **argv) {
             if (!inside) continue;
 
             /* 1. Title bar */
-            if (my <= g->y + TITLEBAR_H) {
+            if (my <= g->y + TITLEBAR_H + 1) {
               int btn = hit_title_button(g, mx, my);
               if (btn == 1) {
                 g->state = STATE_MINIMIZED;
@@ -1581,8 +1593,8 @@ int main(int argc, char **argv) {
             /* 2. Scrollbar */
             if (g->max_scroll > 0) {
               int sb_x = g->x + g->w - 2 - SCROLLBAR_W;
-              int sb_y = g->y + TITLEBAR_H;
-              int sb_h = g->h - TITLEBAR_H - 2;
+              int sb_y = g->y + TITLEBAR_H + 4;
+              int sb_h = g->h - TITLEBAR_H - 2 - 4;
               if (mx >= sb_x && mx < sb_x + SCROLLBAR_W && my >= sb_y && my < sb_y + sb_h) {
                 active_group = i;
                 int arrow_h = 16;
@@ -1615,7 +1627,7 @@ int main(int argc, char **argv) {
             /* 3. Content area */
             {
               int app_idx = -1;
-              int content_w = g->w - 4;
+              int content_w = g->w - 4 - 2 - 2;
               if (g->max_scroll > 0) content_w -= SCROLLBAR_W;
               int slot_w = 104;
               int left_margin = 16;
@@ -1623,7 +1635,7 @@ int main(int argc, char **argv) {
               if (icons_per_row < 1) icons_per_row = 1;
               int used_w = icons_per_row * slot_w;
               int block_x = g->x + 2 + (content_w - used_w) / 2;
-              int base_y = g->y + TITLEBAR_H;
+              int base_y = g->y + TITLEBAR_H + 2;
               int col = (mx - block_x) / slot_w;
               int row = (my - base_y - 10 + g->scroll_offset) / 86;
               if (col >= 0 && col < icons_per_row) {

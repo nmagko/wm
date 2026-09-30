@@ -24,6 +24,7 @@
 #define C_BLACK             0x00000000UL
 #define C_LIGHTYELLOW       0x00FFFFEEUL
 #define C_DARKGRAY          0x00808080UL
+#define C_LIGHTGRAY         0x00DDDDDDUL
 #define C_CYAN              0x0000C7CFUL
 #define C_BLUE              0x000000CFUL
 #define C_ACTIVE_TITLE      0x00006480UL // 537FAD
@@ -51,6 +52,7 @@
 #define COL_WHITE           C_WHITE
 #define COL_BLACK           C_BLACK
 #define COL_GRAY            C_DARKGRAY
+#define COL_LIGHTGRAY       C_LIGHTGRAY
 #define COL_CYAN            C_CYAN
 #define COL_BLUE            C_BLUE
 #define COL_ACTIVE_TITLE    C_ACTIVE_TITLE
