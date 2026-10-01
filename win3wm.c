@@ -37,17 +37,17 @@
 /* Constants and macros */
 /* ================================================================ */
 /* Compact geometry */
-#define FRAME_EDGE        5
-#define TITLE_H          19
-#define CTRL_W           19 // 18
-#define CTRL_H           18 // 17
-#define CTRL_GAP          1
+#define FRAME_EDGE       5
+#define TITLE_H         19
+#define CTRL_W          19 // 18
+#define CTRL_H          18 // 17
+#define CTRL_GAP         1
 
 /* Icon grid */
-#define ICON_CELL_W       88
-#define ICON_CELL_H       52
-#define ICON_ART_W        32
-#define ICON_ART_H        32
+#define ICON_CELL_W     88
+#define ICON_CELL_H     52
+#define ICON_ART_W      32
+#define ICON_ART_H      32
 
 /* Control menu, Minimize, and Maximize buttons */
 #define STATE_NORMAL     0
@@ -55,22 +55,22 @@
 #define STATE_MAXIMIZED  2
 
 /* Misc constants */
-#define MAX_MONITORS      16
+#define MAX_MONITORS    16
 
-#define TASK_W            330
-#define TASK_H            250
-#define TASK_MARGIN        10
-#define TASK_LIST_Y        30 // 28
-#define TASK_LIST_H       132
-#define TASK_ROW_H         14
-#define TASK_BTN_W         98 // 92
-#define TASK_BTN_H         22
-#define TASK_GAP            8
+#define TASK_W         330
+#define TASK_H         250
+#define TASK_MARGIN     10
+#define TASK_LIST_Y     30 // 28
+#define TASK_LIST_H    132
+#define TASK_ROW_H      14
+#define TASK_BTN_W      98 // 92
+#define TASK_BTN_H      22
+#define TASK_GAP         8
 
-#define RESIZE_LEFT   1
-#define RESIZE_RIGHT  2
-#define RESIZE_TOP    4
-#define RESIZE_BOTTOM 8
+#define RESIZE_LEFT      1
+#define RESIZE_RIGHT     2
+#define RESIZE_TOP       4
+#define RESIZE_BOTTOM    8
 
 #define MAX(a,b) ((a) > (b) ? (a) : (b))
 
@@ -85,8 +85,8 @@ typedef struct Win3Window {
   char *title;
   int state;
   int restore_state;
-  int x, y;                 /* client position in root coordinates */
-  int width, height;        /* client size */
+  int x, y; // client position in root coordinates
+  int width, height; // client size
   int normal_x, normal_y;
   int normal_width, normal_height;
   int ignore_unmap;
@@ -168,10 +168,8 @@ static int read_monitors (MonitorInfo *mons, int maxmons) {
   FILE *fp;
   char line[512];
   int n = 0, current = -1;
-
   fp = popen("xrandr --query 2>/dev/null", "r");
   if (!fp) return -1;
-
   while (fgets(line, sizeof(line), fp)) {
     char name[64], status[32];
     if (line[0] != ' ' && line[0] != '\t') {
@@ -199,7 +197,6 @@ static int read_monitors (MonitorInfo *mons, int maxmons) {
       }
     }
   }
-
   if (pclose(fp) == -1 && n == 0) return -1;
   return n;
 }
@@ -237,10 +234,8 @@ static int configure_monitors (const char *arg) {
   MonitorInfo mons[MAX_MONITORS];
   int n, i, selected = -1;
   char cmd[4096] = "xrandr";
-
   if (!arg || strcmp(arg, "/extend") == 0 || strcmp(arg, "--extend") == 0)
     return 1;
-
   /* n = read_monitors(mons, (int)(sizeof(mons) / sizeof(mons[0]))); */
   n = read_monitors(mons, MAX_MONITORS);
   if (n <= 0) {
@@ -248,7 +243,6 @@ static int configure_monitors (const char *arg) {
             program_invocation_short_name);
     return 0;
   }
-
   if (strcmp(arg, "/mirror") == 0 || strcmp(arg, "--mirror") == 0) {
     int ref = 0;
     const char *common = NULL;
@@ -272,7 +266,6 @@ static int configure_monitors (const char *arg) {
     }
     return run_xrandr_command(cmd);
   }
-
   if (arg[0] == '/' && arg[1] && strspn(arg + 1, "0123456789") == strlen(arg + 1)) {
     long idx = strtol(arg + 1, NULL, 10);
     if (idx < 1 || idx > n) {
@@ -291,7 +284,6 @@ static int configure_monitors (const char *arg) {
     }
     return run_xrandr_command(cmd);
   }
-
   fprintf(stderr,
           "%s\n\nUsage: %s [/extend | /mirror | /N]\n"
           "  /extend   Xorg's current extended layout (default)\n"
@@ -362,21 +354,18 @@ static Win3Window *find_any (Window window) {
 
 static void set_wm_state (Win3Window *w, long state) {
   long data[2] = { state, None };
-  XChangeProperty(dpy, w->client, wm_state_atom, wm_state_atom,
-                  32, PropModeReplace, (unsigned char *)data, 2);
+  XChangeProperty(dpy, w->client, wm_state_atom, wm_state_atom, 32, PropModeReplace, (unsigned char *)data, 2);
 }
 
 static void send_delete (Win3Window *w) {
   Atom *protocols = NULL;
   int n = 0, i;
   int supports_delete = 0;
-
   if (XGetWMProtocols(dpy, w->client, &protocols, &n)) {
     for (i = 0; i < n; ++i)
       if (protocols[i] == wm_delete_window_atom) supports_delete = 1;
     if (protocols) XFree(protocols);
   }
-
   if (supports_delete) {
     XEvent ev;
     memset(&ev, 0, sizeof(ev));
@@ -397,7 +386,6 @@ static char *get_title (Window window) {
   char **list = NULL;
   int count = 0;
   char *result = NULL;
-
   if (XGetWMName(dpy, window, &prop) && prop.value) {
     if (prop.encoding == XA_STRING) {
       result = strdup((char *)prop.value);
@@ -557,18 +545,15 @@ static int draw_wm_icon_pixmap (Win3Window *w, Window window, GC gc, int box_x, 
   int dx, dy;
   unsigned int cw, ch;
   int ok = 0;
-
   hints = XGetWMHints(dpy, w->client);
   if (!hints || !(hints->flags & IconPixmapHint) || hints->icon_pixmap == None)
     goto out;
   if (!XGetGeometry(dpy, hints->icon_pixmap, &rr, &px, &py, &pw, &ph, &bw, &depth))
     goto out;
-
   cw = pw > ICON_ART_W ? ICON_ART_W : pw;
   ch = ph > ICON_ART_H ? ICON_ART_H : ph;
   dx = box_x + (ICON_ART_W - (int)cw) / 2;
   dy = box_y + (ICON_ART_H - (int)ch) / 2;
-
   if (depth == 1) {
     XSetForeground(dpy, gc, C_BLACK);
     XSetBackground(dpy, gc, C_DESKTOP);
@@ -578,7 +563,6 @@ static int draw_wm_icon_pixmap (Win3Window *w, Window window, GC gc, int box_x, 
     XCopyArea(dpy, hints->icon_pixmap, window, gc, 0, 0, cw, ch, dx, dy);
     ok = 1;
   }
-
  out:
   if (hints) XFree(hints);
   return ok;
@@ -589,15 +573,12 @@ static void draw_icon (Win3Window *w) {
   int art_x = (ICON_CELL_W - ICON_ART_W) / 2;
   int art_y = 1;
   int len, tw, tx, baseline;
-
   if (!w || !w->iconwin) return;
   gc = XCreateGC(dpy, w->iconwin, 0, NULL);
   XSetForeground(dpy, gc, C_DESKTOP);
   XFillRectangle(dpy, w->iconwin, gc, 0, 0, ICON_CELL_W, ICON_CELL_H);
-
   if (!draw_wm_icon_pixmap(w, w->iconwin, gc, art_x, art_y))
     draw_fallback_icon(w->iconwin, gc, art_x, art_y);
-
   if (font_info && w->title) {
     len = (int)strlen(w->title);
     while (len > 0 && XTextWidth(font_info, w->title, len) > ICON_CELL_W - 4) --len;
@@ -630,17 +611,14 @@ static void arrange_icons (void) {
   Win3Window *w;
   Win3Window **list;
   int count = 0, i = 0, cols;
-
   for (w = windows; w; w = w->next)
     if (w->state == STATE_MINIMIZED && w->iconwin) ++count;
   if (!count || !XGetWindowAttributes(dpy, root, &ra)) return;
-
   list = malloc((size_t)count * sizeof(*list));
   if (!list) return;
   for (w = windows; w; w = w->next)
     if (w->state == STATE_MINIMIZED && w->iconwin) list[i++] = w;
   qsort(list, (size_t)count, sizeof(*list), icon_seq_cmp);
-
   cols = MAX(1, ra.width / ICON_CELL_W);
   for (i = 0; i < count; ++i) {
     int col = i % cols;
@@ -720,12 +698,9 @@ static void constrain_client_position (Win3Window *w) {
   int min_x = FRAME_EDGE;
   int min_y = FRAME_EDGE + TITLE_H;
   int max_x, max_y;
-
   if (!XGetWindowAttributes(dpy, root, &ra)) return;
-
   max_x = MAX(min_x, ra.width - w->width - FRAME_EDGE);
   max_y = MAX(min_y, ra.height - w->height - FRAME_EDGE);
-
   if (w->x < min_x) w->x = min_x;
   if (w->y < min_y) w->y = min_y;
   if (w->x > max_x) w->x = max_x;
@@ -766,11 +741,9 @@ static Win3Window *manage (Window client) {
   XSetWindowAttributes fa, ta;
   Win3Window *w;
   int fx, fy;
-
   if (find_client(client)) return find_client(client);
   if (!XGetWindowAttributes(dpy, client, &a)) return NULL;
   if (a.override_redirect || a.class == InputOnly) return NULL;
-
   w = calloc(1, sizeof(*w));
   if (!w) return NULL;
   w->client = client;
@@ -787,14 +760,11 @@ static Win3Window *manage (Window client) {
   w->normal_y = w->y;
   w->normal_width = w->width;
   w->normal_height = w->height;
-
   /* adding children to the list to be assumed as internal and notified */
   w->next = windows;
   windows = w;
-
   fx = w->x - FRAME_EDGE;
   fy = w->y - FRAME_EDGE - TITLE_H;
-
   memset(&fa, 0, sizeof(fa));
   fa.override_redirect = True;
   fa.background_pixel = C_FACE;
@@ -823,13 +793,10 @@ static Win3Window *manage (Window client) {
     return NULL;
   }
   XSetWindowBorderWidth(dpy, client, 0);
-
   /* Reparenting a client which was already mapped at WM startup */
   if (a.map_state != IsUnmapped) ++w->ignore_unmap;
   XReparentWindow(dpy, client, w->frame, client_off_x(), client_off_y());
-
   apply_geometry(w);
-
   /* The mapping goes first, then expose to avoid the title hiding the buttons */
   XMapWindow(dpy, w->titlebar);
   XMapWindow(dpy, client);
@@ -851,7 +818,6 @@ static void unmanage (Win3Window *w, int client_destroyed) {
     resize_win = NULL; resizing = 0;
     XUngrabPointer(dpy, CurrentTime);
   }
-
   if (!client_destroyed) {
     XWindowAttributes fa;
     int rx = w->x, ry = w->y;
@@ -865,7 +831,6 @@ static void unmanage (Win3Window *w, int client_destroyed) {
   }
   if (w->iconwin) { XDestroyWindow(dpy, w->iconwin); w->iconwin = None; }
   if (w->frame) XDestroyWindow(dpy, w->frame);
-
   for (p = &windows; *p && *p != w; p = &(*p)->next) {}
   if (*p) *p = w->next;
   arrange_icons();
@@ -1310,9 +1275,9 @@ static void draw_task_list (void) {
     if (len) XDrawString(dpy, task_win, gc, TASK_MARGIN + 4, baseline, w->title, len);
   }
   /* buttons */
-  draw_task_button(gc, TASK_MARGIN, 178, "Switch To");
-  draw_task_button(gc, TASK_MARGIN + TASK_BTN_W + TASK_GAP, 178, "End Task");
-  draw_task_button(gc, TASK_MARGIN + 2 * (TASK_BTN_W + TASK_GAP), 178, "Cancel");
+  draw_task_button(gc, TASK_MARGIN, 179, "Switch To");
+  draw_task_button(gc, TASK_MARGIN + TASK_BTN_W + TASK_GAP, 179, "End Task");
+  draw_task_button(gc, TASK_MARGIN + 2 * (TASK_BTN_W + TASK_GAP), 179, "Cancel");
   XSetForeground(dpy, gc, C_BLACK);
   XFillRectangle(dpy, task_win, gc, 4, 207, TASK_W - 8, 2);
   draw_task_button(gc, TASK_MARGIN, 214, "Cascade");
@@ -1446,14 +1411,14 @@ static void task_button_press (XButtonEvent *e) {
     }
     return;
   }
-  if (y >= 178 && y < 178 + TASK_BTN_H) {
+  if (y > 179 && y <= 179 + TASK_BTN_H) {
     if (x < TASK_MARGIN + TASK_BTN_W) task_switch_selected();
     else if (x < TASK_MARGIN + 2 * TASK_BTN_W + TASK_GAP) {
       Win3Window *w = task_at(task_selected);
       close_task_list();
       if (w) send_delete(w);
     } else close_task_list();
-  } else if (y >= 214 && y < 214 + TASK_BTN_H) {
+  } else if (y > 214 && y <= 214 + TASK_BTN_H) {
     close_task_list();
     if (x < TASK_MARGIN + TASK_BTN_W) cascade_windows();
     else if (x < TASK_MARGIN + 2 * TASK_BTN_W + TASK_GAP) tile_windows();
@@ -1488,7 +1453,6 @@ static unsigned int numlock_mask (void) {
   numlock = XKeysymToKeycode(dpy, XK_Num_Lock);
   map = XGetModifierMapping(dpy);
   if (!map) return 0;
-
   for (mod = 0; mod < 8; ++mod) {
     for (key = 0; key < map->max_keypermod; ++key) {
       if (map->modifiermap[mod * map->max_keypermod + key] == numlock) {
@@ -1704,7 +1668,6 @@ int main (int argc, char **argv) {
   XSetWindowAttributes ra;
   Window dummy1, dummy2, *children = NULL;
   unsigned int nchildren = 0, i;
-
   dpy = XOpenDisplay(NULL);
   if (!dpy) return EXIT_FAILURE;
   screen = DefaultScreen(dpy);
@@ -1712,34 +1675,27 @@ int main (int argc, char **argv) {
   root_cursor = XCreateFontCursor(dpy, XC_left_ptr);
   XDefineCursor(dpy, root, root_cursor);
   XFlush(dpy);
-
   if (argc > 2 || (argc == 2 && !configure_monitors(argv[1]))) {
     XCloseDisplay(dpy);
     return EXIT_FAILURE;
   }
-
   wm_delete_window_atom = XInternAtom(dpy, "WM_DELETE_WINDOW", False);
   wm_protocols_atom = XInternAtom(dpy, "WM_PROTOCOLS", False);
   wm_state_atom = XInternAtom(dpy, "WM_STATE", False);
-
   font_info = XLoadQueryFont(dpy, "-misc-fixed-bold-r-normal--13-*-*-*-*-*-iso8859-1");
   if (!font_info) font_info = XLoadQueryFont(dpy, "6x13bold");
   if (!font_info) font_info = XLoadQueryFont(dpy, "fixed");
-
   /* WM ownership before installing the runtime handler */
   XSetErrorHandler(xerror);
   memset(&ra, 0, sizeof(ra));
   ra.event_mask = SubstructureRedirectMask | SubstructureNotifyMask | StructureNotifyMask | ButtonPressMask;
   XChangeWindowAttributes(dpy, root, CWEventMask, &ra);
   XSync(dpy, False);
-
   /* Task switching */
   grab_task_switch_keys();
-
   /* Desktop color (gray) */
   XSetWindowBackground(dpy, root, C_DESKTOP);
   XClearWindow(dpy, root);
-
   /* Adopt only viewable clients at startup */
   if (XQueryTree(dpy, root, &dummy1, &dummy2, &children, &nchildren)) {
     for (i = 0; i < nchildren; ++i) {
@@ -1749,7 +1705,6 @@ int main (int argc, char **argv) {
     }
     if (children) XFree(children);
   }
-
   /* EWMH compliance so clients can detect when the WM is ready */
   {
     Window wm_check = XCreateSimpleWindow(dpy, root, -100, -100, 1, 1, 0, CopyFromParent, CopyFromParent);
