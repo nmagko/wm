@@ -58,6 +58,8 @@
 #define CHAR_W       7
 #define MAX_COLS     3 // columns for short view
 
+#define SCROLLBAR_W  18
+
 /* ================================================================ */
 /* Data structures */
 /* ================================================================ */
@@ -185,6 +187,87 @@ static void progress_dialog_rect(int *x, int *y, int *w, int *h) {
   *y = (win_h - *h) / 2;
 }
 
+static int file_area_content_w(void) {
+  int area_y = MENUBAR_H + DRIVEBAR_H + PATHBAR_H;
+  int area_h = win_h - area_y;
+  int rows = area_h / ROW_H;
+  if (rows < 1) rows = 1;
+  /* Compute cols from the full width */
+  int cols = win_w / 300;
+  if (cols < 1) cols = 1;
+  int total_rows = (nfiles + cols - 1) / cols;
+  int w = win_w;
+  if (total_rows > rows) w -= SCROLLBAR_W;
+  return w;
+}
+
+/* Number of rows that fit in the file area */
+static int visible_rows(void) {
+  int area_y = MENUBAR_H + DRIVEBAR_H + PATHBAR_H;
+  int area_h = win_h - area_y;
+  int rows = area_h / ROW_H;
+  if (rows < 1) rows = 1;
+  return rows;
+}
+
+static int file_cols(void) {
+  int content_w = file_area_content_w();
+  int cols = content_w / 300;
+  if (cols < 1) cols = 1;
+  return cols;
+}
+
+static int file_rows(void) {   // rename of visible_rows, to disambiguate
+  int area_y = MENUBAR_H + DRIVEBAR_H + PATHBAR_H;
+  int area_h = win_h - area_y;
+  int rows = area_h / ROW_H;
+  if (rows < 1) rows = 1;
+  return rows;
+}
+
+static int total_file_rows(void) {
+  int cols = file_cols();
+  return (nfiles + cols - 1) / cols;
+}
+
+static int max_scroll_rows(void) {
+  int m = total_file_rows() - file_rows();
+  if (m < 0) m = 0;
+  return m;
+}
+
+static void clamp_scroll(void) {
+  int m = max_scroll_rows();
+  if (top_index < 0) top_index = 0;
+  if (top_index > m) top_index = m;
+}
+
+/* Fill in the geometry of the scrollbar */
+static void scrollbar_geometry(int *sb_x, int *sb_y, int *sb_w, int *sb_h,
+                               int *arrow_h,
+                               int *track_y, int *track_h,
+                               int *thumb_y, int *thumb_h) {
+  int area_y = MENUBAR_H + DRIVEBAR_H + PATHBAR_H;
+  *sb_x = win_w - SCROLLBAR_W;
+  *sb_y = area_y;
+  *sb_w = SCROLLBAR_W;
+  *sb_h = win_h - area_y;
+  *arrow_h = 16;
+  *track_y = *sb_y + *arrow_h;
+  *track_h = *sb_h - 2 * *arrow_h;
+  int rows = file_rows(); // visible rows
+  int total_rows = total_file_rows(); // total rows of files
+  int m = max_scroll_rows(); // rows we can scroll through
+  /* Thumb size proportional to visible area */
+  *thumb_h = (*track_h * rows) / (total_rows > 0 ? total_rows : 1);
+  if (*thumb_h < 16) *thumb_h = 16;
+  if (*thumb_h > *track_h) *thumb_h = *track_h;
+  /* Thumb position proportional to max rows */
+  *thumb_y = *track_y;
+  if (m > 0)
+    *thumb_y += (top_index * (*track_h - *thumb_h)) / m;
+}
+
 /* ================================================================ */
 /* Drive detection via df */
 /* ================================================================ */
@@ -246,7 +329,7 @@ static void load_dir(const char *path) {
   }
   struct dirent *de;
   while ((de = readdir(d)) && nfiles < MAX_FILES) {
-    if (strcmp(de->d_name, ".") == 0) continue;   /* keep ".." for nav */
+    if (strcmp(de->d_name, ".") == 0) continue; // keep ".." for navigation
     char full[MAX_PATH];
     snprintf(full, sizeof(full), "%s/%s", path, de->d_name);
     struct stat st;
@@ -302,6 +385,17 @@ static void fill_rect(int x, int y, int w, int h, unsigned long c) {
 static void draw_rect(int x, int y, int w, int h, unsigned long c) {
   set_fg(c);
   XDrawRectangle(dpy, win, gc, x, y, w-1, h-1);
+}
+
+static void draw_bevel(int x, int y, int width, int height, int raised) {
+  unsigned long tl = raised ? COL_BTN_HI : COL_BTN_LO;
+  unsigned long br = raised ? COL_BTN_LO : COL_BTN_HI;
+  set_fg(tl);
+  XDrawLine(dpy, win, gc, x, y, x + width - 1, y);
+  XDrawLine(dpy, win, gc, x, y, x, y + height - 1);
+  set_fg(br);
+  XDrawLine(dpy, win, gc, x, y + height - 1, x + width - 1, y + height - 1);
+  XDrawLine(dpy, win, gc, x + width - 1, y, x + width - 1, y + height - 1);
 }
 
 /* Draw a floppy-drive icon */
@@ -371,7 +465,6 @@ static void draw_special_menu(void) {
   for (int i = 0; i < n; i++) {
     if (i == 1) { // separator before Exit
       set_fg(COL_BTN_LO);
-      /* XDrawLine(dpy, win, gc, x + 4, y + 6 + i * 18, x + w - 5, y + 6 + i * 18); */
       y += SEPARATOR_H; // we add a separator size every time we find it
       XDrawLine(dpy, win, gc, x + 4, y + i * 18, x + w - 5, y + i * 18);
       set_fg(COL_FG);
@@ -439,11 +532,17 @@ static void draw_drivebar(void) {
   }
 }
 
-/* return the rectangle of a file row */
 static void file_row_rect(int idx, int *x, int *y, int *w, int *h) {
   int area_y = MENUBAR_H + DRIVEBAR_H + PATHBAR_H;
-  int col = idx / ((win_h - area_y) / ROW_H);
-  int row = idx % ((win_h - area_y) / ROW_H);
+  int rows = file_rows();
+  int cols = file_cols();
+  int rel = idx - top_index * cols;
+  if (rel < 0 || rel >= rows * cols) {
+    *x = *y = *w = *h = 0;
+    return;
+  }
+  int col = rel / rows;
+  int row = rel % rows;
   *x = 6 + col * 300;
   *y = area_y + row * ROW_H;
   *w = 290;
@@ -453,54 +552,94 @@ static void file_row_rect(int idx, int *x, int *y, int *w, int *h) {
 static void draw_filelist(void) {
   int area_y = MENUBAR_H + DRIVEBAR_H + PATHBAR_H;
   int area_h = win_h - area_y;
+  int content_w = file_area_content_w();
   fill_rect(0, area_y, win_w, area_h, COL_BG);
-  int rows = area_h / ROW_H;
-  int ncols = (nfiles + rows - 1) / rows;
-  if (ncols < 1) ncols = 1;
-  /* Selection background for selected rows */
-  for (int i = 0; i < nfiles; i++) {
-    if (i >= sel_start && i <= sel_end) {
-      int x, y, w, h;
-      file_row_rect(i, &x, &y, &w, &h);
-      fill_rect(x - 2, y, w, h, COL_BLACK); // COL_HI_BG
-    }
-  }
-  for (int i = 0; i < nfiles; i++) {
+  /* Clip to the file area so scrolled rows don't bleed into the drivebar. */
+  XRectangle clip;
+  clip.x = 0;
+  clip.y = area_y;
+  clip.width = content_w;
+  clip.height = area_h;
+  XSetClipRectangles(dpy, gc, 0, 0, &clip, 1, Unsorted);
+  int cols = file_cols();
+  int start = top_index * cols;
+  int end = start + file_rows() * cols;
+  if (end > nfiles) end = nfiles;
+  for (int i = start; i < end; i++) {
     int x, y, w, h;
     file_row_rect(i, &x, &y, &w, &h);
-    if (y + ROW_H > win_h) continue;
+    if (y + ROW_H <= area_y) continue;
+    if (y >= area_y + area_h) continue;
+    if (x + w > content_w) continue;
     int selected = (i >= sel_start && i <= sel_end);
+    /* Selection background */
+    if (selected) {
+      fill_rect(x - 2, y, w, h, COL_BLACK);
+    }
     unsigned long fg = selected ? COL_HI_FG : COL_FG;
     set_fg(fg);
     char label[32];
     ellipsize(files[i].name, label, 28);
     if (files[i].is_dir) {
-      draw_text(x, y + ROW_H - 3, label, 1); // bold
+      draw_text(x, y + ROW_H - 3, label, 1);
     } else if (files[i].is_exec) {
       draw_text(x, y + ROW_H - 3, label, 0);
-      /* underline executable */
       int tw = strlen(label) * CHAR_W;
       set_fg(fg);
       XDrawLine(dpy, win, gc, x, y + ROW_H - 2, x + tw, y + ROW_H - 2);
     } else {
       draw_text(x, y + ROW_H - 3, label, 0);
     }
-    /* append size or dir mark on long view */
     if (!short_view) {
       char info[64];
       if (files[i].is_dir) strcpy(info, "<DIR>");
       else snprintf(info, sizeof(info), "%8ld", files[i].size);
       int tx = x + 200;
-      if (tx + 60 < win_w) {
+      if (tx + 60 < content_w) {
         set_fg(fg);
         draw_text(tx, y + ROW_H - 3, info, 0);
       }
     }
   }
-  /* scrollbar indicator */
-  if (nfiles > rows * MAX_COLS) {
-    set_fg(COL_FG);
-    draw_text(win_w - 20, area_y + 16, "v", 0);
+  XSetClipMask(dpy, gc, None);
+  /* Scrollbar */
+  if (total_file_rows() > file_rows()) {
+    int sb_x, sb_y, sb_w, sb_h;
+    int arrow_h, track_y, track_h, thumb_y, thumb_h;
+    scrollbar_geometry(&sb_x, &sb_y, &sb_w, &sb_h,
+                       &arrow_h, &track_y, &track_h,
+                       &thumb_y, &thumb_h);
+    /* Lane */
+    fill_rect(sb_x, sb_y, sb_w, sb_h, COL_LIGHTGRAY);
+    draw_bevel(sb_x, sb_y, sb_w, sb_h, 0);
+    /* Upper arrow */
+    fill_rect(sb_x + 1, sb_y + 1, sb_w - 2, arrow_h, COL_BTN);
+    draw_bevel(sb_x + 1, sb_y + 1, sb_w - 2, arrow_h, 1);
+    XSetForeground(dpy, gc, COL_BLACK);
+    XPoint up_pts[] = {{sb_x + 4, sb_y + arrow_h - 7},
+                       {sb_x + sb_w / 2, sb_y + 4},
+                       {sb_x + sb_w - 5, sb_y + arrow_h - 7},
+                       {sb_x + sb_w - 7, sb_y + arrow_h - 7},
+                       {sb_x + sb_w - 7, sb_y + arrow_h - 3},
+                       {sb_x + 7, sb_y + arrow_h - 3},
+                       {sb_x + 7, sb_y + arrow_h - 7}};
+    XFillPolygon(dpy, win, gc, up_pts, 7, Convex, CoordModeOrigin);
+    /* Lower arrow */
+    int dn_y = sb_y + sb_h - arrow_h;
+    fill_rect(sb_x + 1, dn_y, sb_w - 2, arrow_h - 1, COL_BTN);
+    draw_bevel(sb_x + 1, dn_y, sb_w - 2, arrow_h - 1, 1);
+    XPoint dn_pts[] = {{sb_x + 5, dn_y + 8},
+                       {sb_x + sb_w / 2, dn_y + arrow_h - 4},
+                       {sb_x + sb_w - 5, dn_y + 8},
+                       {sb_x + sb_w - 7, dn_y + 8},
+                       {sb_x + sb_w - 7, dn_y + 4},
+                       {sb_x + 7, dn_y + 4},
+                       {sb_x + 7, dn_y + 8}};
+    XSetForeground(dpy, gc, COL_BLACK);
+    XFillPolygon(dpy, win, gc, dn_pts, 7, Convex, CoordModeOrigin);
+    /* Puller */
+    fill_rect(sb_x + 1, thumb_y, sb_w - 2, thumb_h, COL_BTN);
+    draw_bevel(sb_x + 1, thumb_y, sb_w - 2, thumb_h, 1);
   }
 }
 
@@ -610,7 +749,6 @@ static void draw_dialog(void) {
     /* floppy icon */
     int ix = dx + 40;
     int iy = dy + 40;
-    /* draw_floppy(ix, iy, 48, 48, 0); */
     draw_floppy(ix, iy + 18, 32, 32, 0);
     /* text block centered */
     const char *l1 = WM_MGR_VERSION_NAME;
@@ -767,7 +905,7 @@ static void do_copy_file(const char *src, const char *dst, int move, int *overwr
   struct stat st;
   if (stat(src, &st) != 0) return;
 
-  /* if exists, ask */
+  /* ask if exists */
   if (access(dst, F_OK) == 0 && !*overwrite_all) {
     char prompt[512];
     const char *dfn = strrchr(dst, '/');
@@ -1097,7 +1235,6 @@ static int run_input_dialog(char *out, int outsz) {
         int dy = (win_h - 400) / 2;
         int lx = dx + 16, ly = dy + 90;
         int lh = 400 - 130;
-        /* int rows = lh / ROW_H; */
         if (mx >= lx && mx < lx + 520 - 32 && my >= ly && my < ly + lh) {
           int idx = (my - ly) / ROW_H + dlg_browse_top;
           if (idx < dlg_browse_nfiles) {
@@ -1245,12 +1382,15 @@ static int hit_drive(int mx, int my, int *which) {
 static int hit_file(int mx, int my, int *which) {
   int area_y = MENUBAR_H + DRIVEBAR_H + PATHBAR_H;
   if (my < area_y) return 0;
-  int rows = (win_h - area_y) / ROW_H;
+  if (mx >= file_area_content_w()) return 0;
+  int rows = file_rows();
+  int cols = file_cols();
   int col = mx / 300;
-  if (col < 0 || col * 300 >= win_w) return 0;
+  if (col < 0 || col >= cols) return 0;
   int row = (my - area_y) / ROW_H;
   if (row < 0 || row >= rows) return 0;
-  int idx = col * rows + row;
+  int rel = col * rows + row;
+  int idx = top_index * cols + rel;
   if (idx < 0 || idx >= nfiles) return 0;
   *which = idx;
   return 1;
@@ -1331,6 +1471,7 @@ int main(int argc, char **argv) {
     } else if (e.type == ConfigureNotify) {
       win_w = e.xconfigure.width;
       win_h = e.xconfigure.height;
+      clamp_scroll();
       draw_all();
     } else if (e.type == KeyPress) {
       KeySym k = XLookupKeysym(&e.xkey, 0);
@@ -1338,18 +1479,26 @@ int main(int argc, char **argv) {
       case XK_Up:
         if (sel_start > 0) {
           sel_start--; sel_end = sel_start;
+          int sel_row = sel_start % visible_rows();
+          if (sel_row < top_index) top_index = sel_row;
+          clamp_scroll();
         }
         break;
       case XK_Down:
         if (sel_end < nfiles - 1) {
           sel_end++; sel_start = sel_end;
+          int sel_row = sel_end % visible_rows();
+          if (sel_row >= top_index + visible_rows()) top_index = sel_row - visible_rows() + 1;
+          clamp_scroll();
         }
         break;
       case XK_Home:
         sel_start = sel_end = 0;
+        top_index = 0;
         break;
       case XK_End:
         sel_start = sel_end = nfiles - 1;
+        top_index = max_scroll_rows();
         break;
       case XK_Return:
       case XK_KP_Enter:
@@ -1361,6 +1510,14 @@ int main(int argc, char **argv) {
         change_dir(up);
         break;
       }
+      case XK_Page_Up:
+        top_index -= visible_rows();
+        clamp_scroll();
+        break;
+      case XK_Page_Down:
+        top_index += visible_rows();
+        clamp_scroll();
+        break;
       case XK_F5:
         load_dir(cwd);
         break;
@@ -1398,8 +1555,18 @@ int main(int argc, char **argv) {
       draw_all();
     } else if (e.type == ButtonPress) {
       int mx = e.xbutton.x, my = e.xbutton.y;
+      unsigned int button = e.xbutton.button;
       int shift = (e.xbutton.state & ShiftMask) != 0;
-      if (e.xbutton.button == 1) {
+      /* Mouse wheel scrolls the file list. */
+      if (button == Button4 || button == Button5) {
+        int area_y = MENUBAR_H + DRIVEBAR_H + PATHBAR_H;
+        if (my >= area_y) {
+          if (button == Button4) top_index -= 3;
+          else top_index += 3;
+          clamp_scroll();
+          draw_all();
+        }
+      } else if (button == 1) {
         int which;
         /* Special dropdown has highest priority while open */
         if (special_menu_open) {
@@ -1478,7 +1645,33 @@ int main(int argc, char **argv) {
             last_click_idx = -1;
           }
         }
-        /* Anywhere else: close menus */
+        /* Scrollbar */
+        else if (total_file_rows() > file_rows()) {
+          int sb_x, sb_y, sb_w, sb_h;
+          int arrow_h, track_y, track_h, thumb_y, thumb_h;
+          scrollbar_geometry(&sb_x, &sb_y, &sb_w, &sb_h,
+                             &arrow_h, &track_y, &track_h,
+                             &thumb_y, &thumb_h);
+
+          if (mx >= sb_x && mx < sb_x + sb_w && my >= sb_y && my < sb_y + sb_h) {
+            if (my < track_y) {
+              /* Upper arrow */
+              top_index -= 1;
+            } else if (my >= track_y + track_h) {
+              /* Lower arrow */
+              top_index += 1;
+            } else if (my < thumb_y) {
+              /* Page up */
+              top_index -= file_rows();
+            } else if (my >= thumb_y + thumb_h) {
+              /* Page down */
+              top_index += file_rows();
+            }
+            clamp_scroll();
+            draw_all();
+          }
+        }
+        /* Close menues anywhere else */
         else {
           if (menu_open || special_menu_open) {
             menu_open = 0;
