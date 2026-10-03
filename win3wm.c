@@ -856,8 +856,8 @@ static void maximize_or_restore (Win3Window *w) {
     w->height = ra.height - TITLE_H - 2 * FRAME_EDGE;
   }
   apply_geometry(w);
-  XClearWindow(dpy, w->frame);
-  XClearWindow(dpy, w->titlebar);
+  draw_frame(w);
+  draw_titlebar(w);
 }
 
 /* No taskbar, a minimized app became an icon on the desktop */
