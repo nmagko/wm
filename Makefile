@@ -52,6 +52,7 @@ install:
 	$(INSTALL) -o root -Dm 644 -v icons/gnuos.png /usr/local/share/icons/hicolor/48x48/apps/gnuos.png
 	$(STRIP) progman
 	$(INSTALL) -o root -Dm 755 -v progman /usr/local/bin/
+	$(INSTALL) -o root -Dm 644 -v icons/progman.png /usr/local/share/icons/hicolor/48x48/apps/progman.png
 
 uninstall:
 	$(RM) -f /usr/local/bin/wm
@@ -61,3 +62,4 @@ uninstall:
 	$(RM) -f /usr/local/share/icons/hicolor/scalable/apps/gnuos.svg
 	$(RM) -f /usr/local/share/icons/hicolor/48x48/apps/gnuos.png
 	$(RM) -f /usr/local/bin/progman
+	$(RM) -f /usr/local/share/icons/hicolor/48x48/apps/progman.png

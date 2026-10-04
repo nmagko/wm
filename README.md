@@ -31,11 +31,13 @@ manager.
 
   progman.c: Windows 3.0-style program manager clone
 
+  tools/make_icon.sh: Utility to create a .h file for the app icon
+
 ### Prerequisites
 
-Xorg, Xorg development packages, xterm, xrandr utility, and sysv-rc. The
-sysv-rc-conf utility is recommended. Emacs is optional in case you wanna
-use it as a program manager.
+Xorg, Xorg development packages, the xrandr utility, and sysv-rc. The
+sysv-rc-conf utility is recommended. Emacs and xterm are optional in
+case you wanna use one of them as a program manager.
 
 Additionally, it is recommended to use a runlevel without X in text
 mode; the X basic-style is launched with startx, and the Windows

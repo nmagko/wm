@@ -45,10 +45,10 @@
 #define CTRL_GAP         1
 
 /* Icon grid */
-#define ICON_CELL_W     88
-#define ICON_CELL_H     52
-#define ICON_ART_W      32
-#define ICON_ART_H      32
+#define ICON_CELL_W     96
+#define ICON_CELL_H     64
+#define ICON_ART_W      48
+#define ICON_ART_H      48
 
 /* Control menu, Minimize, and Maximize buttons */
 #define STATE_NORMAL     0
