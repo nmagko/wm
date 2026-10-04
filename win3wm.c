@@ -20,6 +20,7 @@
 #define _GNU_SOURCE
 
 #include <errno.h>
+#include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -525,45 +526,179 @@ static void draw_task_list (void);
 static void draw_resize_outline (void);
 
 static void draw_fallback_icon (Window window, GC gc, int x, int y) {
-  XSetForeground(dpy, gc, C_FACE);
-  XFillRectangle(dpy, window, gc, x + 3, y + 4, 26, 23);
+  XSetForeground(dpy, gc, C_DARKGRAY);
+  XFillRectangle(dpy, window, gc, x, y + 1, 32, 30);
   XSetForeground(dpy, gc, C_BLACK);
-  XDrawRectangle(dpy, window, gc, x + 3, y + 4, 25, 22);
+  XDrawRectangle(dpy, window, gc, x, y + 1, 31, 29);
   XSetForeground(dpy, gc, C_ACTIVE_TITLE);
-  XFillRectangle(dpy, window, gc, x + 5, y + 6, 22, 5);
+  XFillRectangle(dpy, window, gc, x + 2, y + 3, 28, 5);
+  XSetForeground(dpy, gc, C_FACE);
+  XDrawLine(dpy, window, gc, x + 3, y + 4, x + 28, y + 4);
   XSetForeground(dpy, gc, C_WHITE);
-  XDrawLine(dpy, window, gc, x + 6, y + 7, x + 24, y + 7);
+  XFillRectangle(dpy, window, gc, x + 2, y + 9, 28, 20);
   XSetForeground(dpy, gc, C_BLACK);
-  XDrawRectangle(dpy, window, gc, x + 8, y + 14, 15, 8);
+  XDrawRectangle(dpy, window, gc, x + 2, y + 9, 27, 19);
+}
+
+static int draw_net_wm_icon (Win3Window *w, Window window, GC gc, int box_x, int box_y) {
+  Atom net_wm_icon = XInternAtom(dpy, "_NET_WM_ICON", False);
+  Atom actual_type;
+  int actual_format;
+  unsigned long nitems, bytes_after;
+  unsigned char *data = NULL;
+  long *icon;
+  long pos = 0;
+  long best_w = 0, best_h = 0;
+  long best_delta = -1;
+  long *best_pixels = NULL;
+  XImage *dst_img;
+  int x, y;
+  if (XGetWindowProperty(dpy, w->client, net_wm_icon, 0, LONG_MAX, False, XA_CARDINAL, &actual_type, &actual_format, &nitems, &bytes_after, &data) != Success)
+    return 0;
+  if (!data || actual_type != XA_CARDINAL || actual_format != 32 || nitems < 2) {
+    if (data) XFree(data);
+    return 0;
+  }
+  icon = (long *)data;
+  while (pos + 2 <= (long)nitems) {
+    long iw = icon[pos++];
+    long ih = icon[pos++];
+    long delta;
+    if (iw <= 0 || ih <= 0) break;
+    if (pos + iw * ih > (long)nitems) break;
+    delta = (iw - ICON_ART_W) * (iw - ICON_ART_W) + (ih - ICON_ART_H) * (ih - ICON_ART_H);
+    if (best_delta < 0 || delta < best_delta) {
+      best_delta = delta;
+      best_w = iw;
+      best_h = ih;
+      best_pixels = &icon[pos];
+    }
+    pos += iw * ih;
+  }
+  if (!best_pixels) {
+    XFree(data);
+    return 0;
+  }
+  dst_img = XGetImage(dpy, window, box_x, box_y, ICON_ART_W, ICON_ART_H, AllPlanes, ZPixmap);
+  if (!dst_img) {
+    XFree(data);
+    return 0;
+  }
+  for (y = 0; y < ICON_ART_H; ++y) {
+    int sy = (int)(y * best_h / ICON_ART_H);
+    for (x = 0; x < ICON_ART_W; ++x) {
+      int sx = (int)(x * best_w / ICON_ART_W);
+      unsigned long argb = (unsigned long)best_pixels[sy * best_w + sx];
+      unsigned char a = (argb >> 24) & 0xFF;
+      unsigned char r = (argb >> 16) & 0xFF;
+      unsigned char g = (argb >>  8) & 0xFF;
+      unsigned char b = (argb      ) & 0xFF;
+      unsigned long pixel;
+      if (a == 0)
+        continue;
+      if (a == 255) {
+        pixel = ((unsigned long)r << 16) | ((unsigned long)g << 8) | b;
+      } else {
+        unsigned long bg = XGetPixel(dst_img, x, y);
+        unsigned char br = (bg >> 16) & 0xFF;
+        unsigned char bgc = (bg >>  8) & 0xFF;
+        unsigned char bb = (bg      ) & 0xFF;
+        unsigned char cr = (r * a + br * (255 - a)) / 255;
+        unsigned char cg = (g * a + bgc * (255 - a)) / 255;
+        unsigned char cb = (b * a + bb * (255 - a)) / 255;
+        pixel = ((unsigned long)cr << 16) | ((unsigned long)cg << 8) | cb;
+      }
+      XPutPixel(dst_img, x, y, pixel);
+    }
+  }
+  XPutImage(dpy, window, gc, dst_img, 0, 0, box_x, box_y, ICON_ART_W, ICON_ART_H);
+  XDestroyImage(dst_img);
+  XFree(data);
+  return 1;
 }
 
 static int draw_wm_icon_pixmap (Win3Window *w, Window window, GC gc, int box_x, int box_y) {
+  if (draw_net_wm_icon(w, window, gc, box_x, box_y))
+    return 1;
   XWMHints *hints;
   Window rr;
   int px, py;
   unsigned int pw, ph, bw, depth;
-  int dx, dy;
   unsigned int cw, ch;
+  int dx, dy;
   int ok = 0;
+  XImage *src_img = NULL;
+  XImage *dst_img = NULL;
+  XImage *mask_img = NULL;
+  Pixmap mask = None;
+  int mask_x = 0, mask_y = 0;
+  unsigned int mask_w = 0, mask_h = 0, mask_bw = 0, mask_depth = 0;
+  int scr_depth = DefaultDepth(dpy, screen);
   hints = XGetWMHints(dpy, w->client);
-  if (!hints || !(hints->flags & IconPixmapHint) || hints->icon_pixmap == None)
+  if (!hints) return 0;
+  if (!(hints->flags & IconPixmapHint) || hints->icon_pixmap == None)
     goto out;
   if (!XGetGeometry(dpy, hints->icon_pixmap, &rr, &px, &py, &pw, &ph, &bw, &depth))
     goto out;
-  cw = pw > ICON_ART_W ? ICON_ART_W : pw;
-  ch = ph > ICON_ART_H ? ICON_ART_H : ph;
+  if ((hints->flags & IconMaskHint) && hints->icon_mask != None) {
+    mask = hints->icon_mask;
+    if (!XGetGeometry(dpy, mask, &rr, &mask_x, &mask_y, &mask_w, &mask_h, &mask_bw, &mask_depth))
+      mask = None;
+  }
+  cw = pw;
+  ch = ph;
   dx = box_x + (ICON_ART_W - (int)cw) / 2;
   dy = box_y + (ICON_ART_H - (int)ch) / 2;
-  if (depth == 1) {
+  if (depth == 1 && cw == ICON_ART_W && ch == ICON_ART_H) {
     XSetForeground(dpy, gc, C_BLACK);
     XSetBackground(dpy, gc, C_DESKTOP);
-    XCopyPlane(dpy, hints->icon_pixmap, window, gc, 0, 0, cw, ch, dx, dy, 1);
+    XCopyPlane(dpy, hints->icon_pixmap, window, gc, 0, 0, ICON_ART_W, ICON_ART_H, dx, dy, 1);
     ok = 1;
-  } else if (depth == (unsigned)DefaultDepth(dpy, screen)) {
-    XCopyArea(dpy, hints->icon_pixmap, window, gc, 0, 0, cw, ch, dx, dy);
-    ok = 1;
+    goto out;
   }
+  if (depth != (unsigned)scr_depth)
+    goto out;
+  if (cw == ICON_ART_W && ch == ICON_ART_H) {
+    if (mask != None) {
+      XSetClipMask(dpy, gc, mask);
+      XSetClipOrigin(dpy, gc, dx, dy);
+    }
+    XCopyArea(dpy, hints->icon_pixmap, window, gc, 0, 0, ICON_ART_W, ICON_ART_H, dx, dy);
+    if (mask != None) {
+      XSetClipMask(dpy, gc, None);
+      XSetClipOrigin(dpy, gc, 0, 0);
+    }
+    ok = 1;
+    goto out;
+  }
+  src_img = XGetImage(dpy, hints->icon_pixmap, 0, 0, cw, ch, AllPlanes, ZPixmap);
+  if (!src_img) goto out;
+  dst_img = XGetImage(dpy, window, dx, dy, ICON_ART_W, ICON_ART_H, AllPlanes, ZPixmap);
+  if (!dst_img) goto out;
+  if (mask != None)
+    mask_img = XGetImage(dpy, mask, 0, 0, mask_w, mask_h, 1, XYPixmap);
+  unsigned long key = XGetPixel(src_img, 0, 0);
+  int have_key = (mask_img == NULL);
+  for (int y = 0; y < ICON_ART_H; ++y) {
+    int sy = y * (int)ch / ICON_ART_H;
+    for (int x = 0; x < ICON_ART_W; ++x) {
+      int sx = x * (int)cw / ICON_ART_W;
+      if (mask_img) {
+        int msx = sx * (int)mask_w / (int)cw;
+        int msy = sy * (int)mask_h / (int)ch;
+        if (XGetPixel(mask_img, msx, msy) == 0) continue;
+      } else if (have_key) {
+        if (XGetPixel(src_img, sx, sy) == key) continue;
+      }
+      XPutPixel(dst_img, x, y, XGetPixel(src_img, sx, sy));
+    }
+  }
+  if (mask_img) { XDestroyImage(mask_img); mask_img = NULL; }
+  XPutImage(dpy, window, gc, dst_img, 0, 0, dx, dy, ICON_ART_W, ICON_ART_H);
+  ok = 1;
  out:
+  if (src_img) XDestroyImage(src_img);
+  if (dst_img) XDestroyImage(dst_img);
   if (hints) XFree(hints);
   return ok;
 }

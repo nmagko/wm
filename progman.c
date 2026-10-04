@@ -37,6 +37,7 @@
 #include <X11/cursorfont.h>
 #include <png.h>
 #include <signal.h>
+#include "progmanicon.h"
 #include "wmver.h"
 #include "wmpal.h"
 
@@ -232,6 +233,21 @@ static void fit_text(char *out, const char *in, int max_pixels) {
     }
   }
   strcpy(out, "...");
+}
+
+static void set_window_icon(Window w) {
+  Atom net_wm_icon = XInternAtom(dpy, "_NET_WM_ICON", False);
+  unsigned long npixels = (unsigned long)APP_ICON_W * APP_ICON_H;
+  unsigned long *payload = malloc((2 + npixels) * sizeof(unsigned long));
+  if (!payload) return;
+  payload[0] = APP_ICON_W;
+  payload[1] = APP_ICON_H;
+  memcpy(payload + 2, gnuos_icon_argb, npixels * sizeof(unsigned long));
+  XChangeProperty(dpy, w, net_wm_icon, XA_CARDINAL, 32,
+                  PropModeReplace, (unsigned char *)payload,
+                  (int)(2 + npixels));
+  XFlush(dpy);
+  free(payload);
 }
 
 /* ================================================================ */
@@ -1392,6 +1408,7 @@ int main(int argc, char **argv) {
   XSelectInput(dpy, TARGET, ExposureMask | KeyPressMask | ButtonPressMask | ButtonReleaseMask | PointerMotionMask | StructureNotifyMask);
   wm_delete_window = XInternAtom(dpy, "WM_DELETE_WINDOW", False);
   XSetWMProtocols(dpy, win, &wm_delete_window, 1);
+  set_window_icon(win);
   gc = XCreateGC(dpy, TARGET, 0, NULL);
   XSetFont(dpy, gc, font->fid);
 

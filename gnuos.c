@@ -37,6 +37,8 @@
 #include <X11/Xutil.h>
 #include <X11/keysym.h>
 #include <X11/cursorfont.h>
+#include <X11/Xatom.h>
+#include "gnuosicon.h"
 #include "wmver.h"
 #include "wmpal.h"
 
@@ -266,6 +268,21 @@ static void scrollbar_geometry(int *sb_x, int *sb_y, int *sb_w, int *sb_h,
   *thumb_y = *track_y;
   if (m > 0)
     *thumb_y += (top_index * (*track_h - *thumb_h)) / m;
+}
+
+static void set_window_icon(Window w) {
+  Atom net_wm_icon = XInternAtom(dpy, "_NET_WM_ICON", False);
+  unsigned long npixels = (unsigned long)APP_ICON_W * APP_ICON_H;
+  unsigned long *payload = malloc((2 + npixels) * sizeof(unsigned long));
+  if (!payload) return;
+  payload[0] = APP_ICON_W;
+  payload[1] = APP_ICON_H;
+  memcpy(payload + 2, gnuos_icon_argb, npixels * sizeof(unsigned long));
+  XChangeProperty(dpy, w, net_wm_icon, XA_CARDINAL, 32,
+                  PropModeReplace, (unsigned char *)payload,
+                  (int)(2 + npixels));
+  XFlush(dpy);
+  free(payload);
 }
 
 /* ================================================================ */
@@ -1446,7 +1463,7 @@ int main(int argc, char **argv) {
   XStoreName(dpy, win, "GNUOS Executive");
   XSelectInput(dpy, win, ExposureMask | KeyPressMask | ButtonPressMask | ButtonReleaseMask | StructureNotifyMask);
   XMapWindow(dpy, win);
-
+  set_window_icon(win);
   gc = XCreateGC(dpy, win, 0, NULL);
   XSetFont(dpy, gc, font->fid);
 
