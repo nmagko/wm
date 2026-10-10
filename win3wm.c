@@ -525,6 +525,27 @@ static void end_alt_tab (void);
 static void draw_task_list (void);
 static void draw_resize_outline (void);
 
+static int any_window_maximized (void) {
+  Win3Window *w;
+  for (w = windows; w; w = w->next)
+    if (w->state == STATE_MAXIMIZED) return 1;
+  return 0;
+}
+
+static void update_icons_visibility (void) {
+  Win3Window *w;
+  int hide = any_window_maximized();
+  for (w = windows; w; w = w->next) {
+    if (w->state != STATE_MINIMIZED || !w->iconwin) continue;
+    if (hide) {
+      XUnmapWindow(dpy, w->iconwin);
+    } else {
+      XMapWindow(dpy, w->iconwin);
+      XLowerWindow(dpy, w->iconwin);
+    }
+  }
+}
+
 static void draw_fallback_icon (Window window, GC gc, int x, int y) {
   XSetForeground(dpy, gc, C_DARKGRAY);
   XFillRectangle(dpy, window, gc, x, y + 1, 32, 30);
@@ -647,9 +668,9 @@ static int draw_wm_icon_pixmap (Win3Window *w, Window window, GC gc, int box_x, 
   }
   cw = pw;
   ch = ph;
-  dx = box_x + (ICON_ART_W - (int)cw) / 2;
-  dy = box_y + (ICON_ART_H - (int)ch) / 2;
   if (depth == 1 && cw == ICON_ART_W && ch == ICON_ART_H) {
+    dx = box_x + (ICON_ART_W - (int)cw) / 2;
+    dy = box_y + (ICON_ART_H - (int)ch) / 2;
     XSetForeground(dpy, gc, C_BLACK);
     XSetBackground(dpy, gc, C_DESKTOP);
     XCopyPlane(dpy, hints->icon_pixmap, window, gc, 0, 0, ICON_ART_W, ICON_ART_H, dx, dy, 1);
@@ -659,6 +680,8 @@ static int draw_wm_icon_pixmap (Win3Window *w, Window window, GC gc, int box_x, 
   if (depth != (unsigned)scr_depth)
     goto out;
   if (cw == ICON_ART_W && ch == ICON_ART_H) {
+    dx = box_x + (ICON_ART_W - (int)cw) / 2;
+    dy = box_y + (ICON_ART_H - (int)ch) / 2;
     if (mask != None) {
       XSetClipMask(dpy, gc, mask);
       XSetClipOrigin(dpy, gc, dx, dy);
@@ -671,6 +694,8 @@ static int draw_wm_icon_pixmap (Win3Window *w, Window window, GC gc, int box_x, 
     ok = 1;
     goto out;
   }
+  dx = box_x;
+  dy = box_y;
   src_img = XGetImage(dpy, hints->icon_pixmap, 0, 0, cw, ch, AllPlanes, ZPixmap);
   if (!src_img) goto out;
   dst_img = XGetImage(dpy, window, dx, dy, ICON_ART_W, ICON_ART_H, AllPlanes, ZPixmap);
@@ -762,6 +787,7 @@ static void arrange_icons (void) {
     int y = ra.height - (row + 1) * ICON_CELL_H;
     if (y < 0) y = 0;
     XMoveWindow(dpy, list[i]->iconwin, x, y);
+    XLowerWindow(dpy, list[i]->iconwin);
   }
   free(list);
 }
@@ -783,6 +809,7 @@ static void restore_from_icon (Win3Window *w) {
   if (!w || w->state != STATE_MINIMIZED) return;
   if (w->iconwin) XUnmapWindow(dpy, w->iconwin);
   w->state = (w->restore_state == STATE_MAXIMIZED) ? STATE_MAXIMIZED : STATE_NORMAL;
+  w->restore_state = w->state;
   if (w->state == STATE_NORMAL) {
     w->x = w->normal_x;
     w->y = w->normal_y;
@@ -797,6 +824,8 @@ static void restore_from_icon (Win3Window *w) {
   set_wm_state(w, NormalState);
   focus_window(w);
   arrange_icons();
+  update_icons_visibility();
+  end_alt_tab();
 }
 
 static void focus_window (Win3Window *w) {
@@ -969,6 +998,7 @@ static void unmanage (Win3Window *w, int client_destroyed) {
   for (p = &windows; *p && *p != w; p = &(*p)->next) {}
   if (*p) *p = w->next;
   arrange_icons();
+  update_icons_visibility();
   free(w->title);
   free(w);
   if (task_open) draw_task_list();
@@ -993,6 +1023,8 @@ static void maximize_or_restore (Win3Window *w) {
   apply_geometry(w);
   draw_frame(w);
   draw_titlebar(w);
+  update_icons_visibility();
+  end_alt_tab();
 }
 
 /* No taskbar, a minimized app became an icon on the desktop */
@@ -1009,8 +1041,9 @@ static void minimize_window (Win3Window *w) {
   XUnmapWindow(dpy, w->frame);
   set_wm_state(w, IconicState);
   if (active_win == w) active_win = NULL;
+  end_alt_tab();
   arrange_icons();
-  XMapRaised(dpy, w->iconwin);
+  update_icons_visibility();
   XClearWindow(dpy, w->iconwin);
 }
 
@@ -1231,7 +1264,8 @@ static int build_alt_tab_list (void) {
   Win3Window *w;
   int i = 0;
   end_alt_tab();
-  for (w = windows; w; w = w->next) ++alt_tab_count;
+  for (w = windows; w; w = w->next)
+    if (w->state != STATE_MINIMIZED) ++alt_tab_count;
   if (alt_tab_count < 2) {
     alt_tab_count = 0;
     return 0;
@@ -1241,10 +1275,11 @@ static int build_alt_tab_list (void) {
     alt_tab_count = 0;
     return 0;
   }
-  for (w = windows; w; w = w->next) alt_tab_list[i++] = w;
+  for (w = windows; w; w = w->next)
+    if (w->state != STATE_MINIMIZED) alt_tab_list[i++] = w;
   qsort(alt_tab_list, (size_t)alt_tab_count, sizeof(*alt_tab_list), focus_seq_cmp);
   /* Make the current application the starting point */
-  if (active_win) {
+  if (active_win && active_win->state != STATE_MINIMIZED) {
     for (i = 0; i < alt_tab_count; ++i) {
       if (alt_tab_list[i] == active_win) {
         Win3Window *tmp = alt_tab_list[0];
