@@ -149,6 +149,9 @@ static int task_top;
 static Time last_task_click_time;
 static int last_task_click_index = -1;
 
+/* rotates through offsets for unpositioned windows */
+static int placement_cascade = 0;
+
 /* ================================================================ */
 /* Handling monitors with xrandr */
 /* ================================================================ */
@@ -882,19 +885,53 @@ static void apply_geometry (Win3Window *w) {
   send_configure(w);
 }
 
-static void read_normal_hints (Win3Window *w) {
+static void default_size_for (Win3Window *w, int *out_w, int *out_h) {
+  XSizeHints h;
+  long supplied = 0;
+  int minw = 0, minh = 0, basew = 0, baseh = 0;
+  if (XGetWMNormalHints(dpy, w->client, &h, &supplied)) {
+    if (h.flags & PMinSize)  { minw = h.min_width;  minh = h.min_height; }
+    if (h.flags & PBaseSize) { basew = h.base_width; baseh = h.base_height; }
+  }
+  *out_w = MAX(1, MAX(minw, basew));
+  *out_h = MAX(1, MAX(minh, baseh));
+}
+
+static int read_normal_hints (Win3Window *w) {
   XSizeHints hints;
   long supplied = 0;
+  int has_pos = 0, has_size = 0;
   if (XGetWMNormalHints(dpy, w->client, &hints, &supplied)) {
     if ((hints.flags & PPosition) || (hints.flags & USPosition)) {
       w->x = hints.x;
       w->y = hints.y;
+      has_pos = 1;
     }
     if (((hints.flags & PSize) || (hints.flags & USSize)) && hints.width > 0 && hints.height > 0) {
       w->width = hints.width;
       w->height = hints.height;
+      has_size = 1;
     }
   }
+  /* no size, fall back to its minimum */
+  if (!has_size) {
+    int dw, dh;
+    default_size_for(w, &dw, &dh);
+    if (dw > w->width)  w->width  = dw;
+    if (dh > w->height) w->height = dh;
+  }
+  /* no position, center the window then cascade */
+  if (!has_pos) {
+    XWindowAttributes ra;
+    if (XGetWindowAttributes(dpy, root, &ra)) {
+      int step = TITLE_H + 6;
+      int off  = placement_cascade * step;
+      w->x = (ra.width  - w->width)  / 2 + off;
+      w->y = (ra.height - w->height) / 2 + off;
+      placement_cascade = (placement_cascade + 1) % 8;
+    }
+  }
+  return has_pos;
 }
 
 /* ================================================================ */
@@ -918,7 +955,18 @@ static Win3Window *manage (Window client) {
   w->y = a.y;
   w->width = MAX(1, a.width);
   w->height = MAX(1, a.height);
-  read_normal_hints(w);
+  int has_pos = read_normal_hints(w);
+  if (!has_pos) {
+    Window parent = None;
+    if (XGetTransientForHint(dpy, w->client, &parent)) {
+      Win3Window *pw = find_client(parent);
+      if (pw && pw->state != STATE_MINIMIZED) {
+        w->x = pw->x + (pw->width - w->width) / 2;
+        w->y = pw->y + (pw->height - w->height) / 2;
+      }
+    }
+  }
+  if ((w->x != a.x) || (w->y != a.y)) placement_cascade = 0;
   constrain_client_position(w);
   w->normal_x = w->x;
   w->normal_y = w->y;
