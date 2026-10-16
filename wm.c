@@ -19,20 +19,20 @@
 
 #define _GNU_SOURCE
 
+#include "wmpal.h"
+#include "wmver.h"
+#include <X11/Xatom.h>
+#include <X11/Xlib.h>
+#include <X11/cursorfont.h>
 #include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <X11/Xlib.h>
-#include <X11/Xatom.h>
-#include <X11/cursorfont.h>
-#include "wmver.h"
-#include "wmpal.h"
 
 /* ================================================================ */
 /* Constants and macros */
 /* ================================================================ */
-#define S_BORDER  3
+#define S_BORDER 3
 #define MAX(a, b) ((a) > (b) ? (a) : (b))
 
 /* ================================================================ */
@@ -44,19 +44,18 @@ static Cursor root_cursor = None;
 /* X basic-style objects' handling */
 /* ================================================================ */
 /* Error events handler */
-int wmCatch (Display *dpy, XErrorEvent *xe) {
+int wmCatch(Display *dpy, XErrorEvent *xe) {
   (void)dpy; /* Suppress unused parameter warning */
-  printf ( "{ object: \"%s\", name: \"%s\", detail: { req: %u, err: %u }, message: \"%s\" }\n",
-           program_invocation_short_name,
-           WM_TUI_VERSION_SHORT,
-           (*xe).request_code,
-           (*xe).error_code,
-           "Something went wrong");
+  printf("{ object: \"%s\", name: \"%s\", detail: { req: %u, err: %u }, "
+         "message: \"%s\" }\n",
+         program_invocation_short_name, WM_TUI_VERSION_SHORT,
+         (*xe).request_code, (*xe).error_code, "Something went wrong");
   return EXIT_SUCCESS;
 }
 
 /* X basic-style window decoration */
-static void wmWindowsBorder (Display *dpy, Window root, unsigned int brdw, unsigned long brdc) {
+static void wmWindowsBorder(Display *dpy, Window root, unsigned int brdw,
+                            unsigned long brdc) {
   unsigned int nwins, i;
   Window dummyw1, dummyw2, *wins;
   XWindowAttributes attr;
@@ -67,7 +66,8 @@ static void wmWindowsBorder (Display *dpy, Window root, unsigned int brdw, unsig
     XGetWindowAttributes(dpy, wins[i], &attr);
     /* InputOutput is equals to 1; ... && attr.map_state == IsViewable */
     if (!attr.override_redirect && attr.class == InputOutput) {
-      /* printf ( "{ object: \"%s\", name: \"%s\", attributes: [ %u, %u, %u ] }\n", */
+      /* printf ( "{ object: \"%s\", name: \"%s\", attributes: [ %u, %u, %u ]
+       * }\n", */
       /*          program_invocation_short_name, */
       /*          WM_TUI_VERSION_SHORT, */
       /*          attr.class, */
@@ -85,7 +85,7 @@ static void wmWindowsBorder (Display *dpy, Window root, unsigned int brdw, unsig
 /* ================================================================ */
 /* Main launcher */
 /* ================================================================ */
-int main (void) {
+int main(void) {
   Display *dpy;
   Window root;
   int screen;
@@ -97,7 +97,8 @@ int main (void) {
   unsigned int brdw = S_BORDER;
   unsigned long brdc = C_BORDER;
 
-  if ( !(dpy = XOpenDisplay(0x0)) ) return EXIT_FAILURE;
+  if (!(dpy = XOpenDisplay(0x0)))
+    return EXIT_FAILURE;
 
   screen = DefaultScreen(dpy);
   root = RootWindow(dpy, screen);
@@ -125,7 +126,7 @@ int main (void) {
     Window wm_check = XCreateSimpleWindow(dpy, root, -100, -100, 1, 1, 0,
                                           CopyFromParent, CopyFromParent);
     Atom check_atom = XInternAtom(dpy, "_NET_SUPPORTING_WM_CHECK", False);
-    Atom utf8_atom  = XInternAtom(dpy, "UTF8_STRING", False);
+    Atom utf8_atom = XInternAtom(dpy, "UTF8_STRING", False);
     Atom wm_name_atom = XInternAtom(dpy, "_NET_WM_NAME", False);
     const char *wm_name = "wm";
     XChangeProperty(dpy, root, check_atom, XA_WINDOW, 32, PropModeReplace,
@@ -140,29 +141,30 @@ int main (void) {
   /* Main event loop */
   for (;;) {
     XNextEvent(dpy, &ev);
-    if ( ev.type == KeyPress && ev.xkey.subwindow != None ) {
+    if (ev.type == KeyPress && ev.xkey.subwindow != None) {
       XRaiseWindow(dpy, ev.xkey.subwindow);
-    } else if ( ev.type == ButtonPress && ev.xbutton.subwindow != None ) {
+    } else if (ev.type == ButtonPress && ev.xbutton.subwindow != None) {
       XGrabPointer(dpy, ev.xbutton.subwindow, True,
-                   PointerMotionMask|ButtonReleaseMask, GrabModeAsync,
+                   PointerMotionMask | ButtonReleaseMask, GrabModeAsync,
                    GrabModeAsync, None, None, CurrentTime);
       XGetWindowAttributes(dpy, ev.xbutton.subwindow, &attr);
       start = ev.xbutton;
       dragging = 1;
-    } else if ( ev.type == MotionNotify && dragging ) {
+    } else if (ev.type == MotionNotify && dragging) {
       int xdiff, ydiff;
-      while ( XCheckTypedEvent(dpy, MotionNotify, &ev) );
+      while (XCheckTypedEvent(dpy, MotionNotify, &ev))
+        ;
       xdiff = ev.xbutton.x_root - start.x_root;
       ydiff = ev.xbutton.y_root - start.y_root;
       XMoveResizeWindow(dpy, ev.xmotion.window,
-                        attr.x + (start.button==1 ? xdiff : 0),
-                        attr.y + (start.button==1 ? ydiff : 0),
-                        MAX(1, attr.width + (start.button==3 ? xdiff : 0)),
-                        MAX(1, attr.height + (start.button==3 ? ydiff : 0)));
-    } else if ( ev.type == ButtonRelease ) {
+                        attr.x + (start.button == 1 ? xdiff : 0),
+                        attr.y + (start.button == 1 ? ydiff : 0),
+                        MAX(1, attr.width + (start.button == 3 ? xdiff : 0)),
+                        MAX(1, attr.height + (start.button == 3 ? ydiff : 0)));
+    } else if (ev.type == ButtonRelease) {
       XUngrabPointer(dpy, CurrentTime);
       dragging = 0;
-    } else if ( ev.type == CreateNotify ) {
+    } else if (ev.type == CreateNotify) {
       wmWindowsBorder(dpy, root, brdw, brdc);
     }
   }

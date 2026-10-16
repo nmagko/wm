@@ -19,35 +19,40 @@
 
 #define _GNU_SOURCE
 
+#include "wmver.h"
 #include <errno.h>
+#include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-#include <limits.h>
-#include "wmver.h"
 
 /* ================================================================ */
 /* Helpers */
 /* ================================================================ */
 
-static int count_monitors (void) {
+static int count_monitors(void) {
   FILE *fp;
   char line[512];
   int n = 0;
   fp = popen("grep -l '^connected$' /sys/class/drm/*/status 2>/dev/null", "r");
-  if (!fp) return -1;
-  while (fgets(line, sizeof(line), fp)) n++;
-  if (pclose(fp) == -1 && n == 0) return -1;
+  if (!fp)
+    return -1;
+  while (fgets(line, sizeof(line), fp))
+    n++;
+  if (pclose(fp) == -1 && n == 0)
+    return -1;
   return n;
 }
 
-int backupfile (char *source, char *target) {
+int backupfile(char *source, char *target) {
   FILE *src = fopen(source, "r");
   FILE *dst = fopen(target, "w");
   if (!src || !dst) {
-    if (src) fclose(src);
-    if (dst) fclose(dst);
+    if (src)
+      fclose(src);
+    if (dst)
+      fclose(dst);
     return EXIT_FAILURE;
   }
   char buffer[8192];
@@ -64,10 +69,11 @@ int backupfile (char *source, char *target) {
   return EXIT_SUCCESS;
 }
 
-void CmdLineHelp (void) {
+void CmdLineHelp(void) {
   printf("%s\nUsage: %s [/setup | /reset]\n"
          "\n  /setup   Initialize the .xinitrc configuration\n"
-         "\n  /reset   Reset the .xinitrc configuration and go back to the previous one if it exists\n\n",
+         "\n  /reset   Reset the .xinitrc configuration and go back to the "
+         "previous one if it exists\n\n",
          WM_TUI_VERSION_STRING, program_invocation_short_name);
 }
 
@@ -75,7 +81,7 @@ void CmdLineHelp (void) {
 /* Main launcher */
 /* ================================================================ */
 
-int main (int argc, char *argv[]) {
+int main(int argc, char *argv[]) {
   int n = -1;
   const char *home = getenv("HOME");
   char winrc[PATH_MAX], xinitrc[PATH_MAX], backup[PATH_MAX];
@@ -85,8 +91,10 @@ int main (int argc, char *argv[]) {
   char ans = 'n';
   int num = 0;
 
-  if (argc > 2 || (argc == 2 && !(strcmp(argv[1], "/setup") == 0 || strcmp(argv[1], "--setup") == 0 ||
-                                  strcmp(argv[1], "/reset") == 0 || strcmp(argv[1], "--reset") == 0))) {
+  if (argc > 2 ||
+      (argc == 2 &&
+       !(strcmp(argv[1], "/setup") == 0 || strcmp(argv[1], "--setup") == 0 ||
+         strcmp(argv[1], "/reset") == 0 || strcmp(argv[1], "--reset") == 0))) {
     CmdLineHelp();
     return EXIT_FAILURE;
   }
@@ -101,7 +109,8 @@ int main (int argc, char *argv[]) {
   snprintf(xinitrc, sizeof xinitrc, "%s/.xinitrc", home);
   snprintf(backup, sizeof backup, "%s/.xinitrc-win~", home);
 
-  if (argc == 2 && (strcmp(argv[1], "/reset") == 0 || strcmp(argv[1], "--reset") == 0)) {
+  if (argc == 2 &&
+      (strcmp(argv[1], "/reset") == 0 || strcmp(argv[1], "--reset") == 0)) {
     if (remove(winrc) != 0) {
       fprintf(stderr, "%s: error removing %s. Was it initialized previously?\n",
               program_invocation_short_name, winrc);
@@ -126,22 +135,29 @@ int main (int argc, char *argv[]) {
     return EXIT_SUCCESS;
   }
 
-  if (access(winrc, F_OK) == -1 || (argc == 2 && (strcmp(argv[1], "/setup") == 0 ||
-                                                  strcmp(argv[1], "--setup") == 0))) {
+  if (access(winrc, F_OK) == -1 ||
+      (argc == 2 &&
+       (strcmp(argv[1], "/setup") == 0 || strcmp(argv[1], "--setup") == 0))) {
     n = count_monitors();
     if (n <= 0) {
-      fprintf(stderr, "%s: error reading connected outputs. Is grep installed?\n",
+      fprintf(stderr,
+              "%s: error reading connected outputs. Is grep installed?\n",
               program_invocation_short_name);
       return EXIT_FAILURE;
     }
     if (n > 1) {
       while (ans != 'e' && ans != 'm' && ans != 's') {
         ans = 'e';
-        printf("\nMulti-monitors have been found (CTRL+C=Exit)\n"
-               "Do you wanna (e)xtend, (m)irror, or use a (s)pecific one? [%c] ", ans);
+        printf(
+            "\nMulti-monitors have been found (CTRL+C=Exit)\n"
+            "Do you wanna (e)xtend, (m)irror, or use a (s)pecific one? [%c] ",
+            ans);
         ans = getchar();
-        if (ans != '\n') while (getchar() != '\n');
-        if (ans == '\n') ans = 'e';
+        if (ans != '\n')
+          while (getchar() != '\n')
+            ;
+        if (ans == '\n')
+          ans = 'e';
       }
       if (ans == 'm')
         snprintf(monitor, sizeof monitor, "/mirror");
@@ -150,7 +166,8 @@ int main (int argc, char *argv[]) {
           printf("\nCounted monitors %d (CTRL+C=Exit)\n", n);
           printf("Choose one from 1 to %d: ", n);
           scanf("%d", &num);
-          while (getchar() != '\n');
+          while (getchar() != '\n')
+            ;
         }
         snprintf(monitor, sizeof monitor, "/%d", num);
       }
@@ -159,10 +176,15 @@ int main (int argc, char *argv[]) {
     while (ans != 'p' && ans != 'x' && ans != 'e') {
       ans = 'p';
       printf("\nProgram manager (CTRL+C=Exit)\n");
-      printf("Which one do you wanna use, (p)rogman, (x)term, or (e)macs? [%c] ", ans);
+      printf(
+          "Which one do you wanna use, (p)rogman, (x)term, or (e)macs? [%c] ",
+          ans);
       ans = getchar();
-      if (ans != '\n') while (getchar() != '\n');
-      if (ans == '\n') ans = 'p';
+      if (ans != '\n')
+        while (getchar() != '\n')
+          ;
+      if (ans == '\n')
+        ans = 'p';
     }
     if (ans == 'p')
       snprintf(manager, sizeof manager, "progman");
@@ -170,7 +192,10 @@ int main (int argc, char *argv[]) {
       snprintf(manager, sizeof manager, "xterm");
     if (ans == 'e')
       snprintf(manager, sizeof manager, "emacs");
-    snprintf(xinitcontent, sizeof xinitcontent, "printf 'Xcursor.theme: Whiteglass\\n' | xrdb -merge -\n/usr/local/bin/win3wm %s &\nexec %s\n", monitor, manager);
+    snprintf(xinitcontent, sizeof xinitcontent,
+             "printf 'Xcursor.theme: Whiteglass\\n' | xrdb -merge "
+             "-\n/usr/local/bin/win3wm %s &\nexec %s\n",
+             monitor, manager);
     printf("Initializing...");
     FILE *file = fopen(winrc, "w");
     if (!file) {
@@ -180,7 +205,8 @@ int main (int argc, char *argv[]) {
     fputs(xinitcontent, file);
     fclose(file);
     printf(" done.\n");
-  } else goto exec;
+  } else
+    goto exec;
   /* Yes, goto. Now, what are you gonna do about it? mf */
 
   if (access(xinitrc, F_OK) != -1) {
@@ -198,7 +224,7 @@ int main (int argc, char *argv[]) {
       printf(" failed.\n");
   }
 
- exec:
+exec:
   execlp("startx", "startx", (char *)NULL);
   fprintf(stderr, "%s: error starting the environment. Is Xorg installed?\n",
           program_invocation_short_name);

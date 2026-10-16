@@ -19,48 +19,48 @@
 
 #define _GNU_SOURCE
 
+#include "gnuosicon.h"
+#include "wmpal.h"
+#include "wmver.h"
+#include <X11/Xatom.h>
+#include <X11/Xlib.h>
+#include <X11/Xutil.h>
+#include <X11/cursorfont.h>
+#include <X11/keysym.h>
+#include <ctype.h>
+#include <dirent.h>
 #include <errno.h>
-#include <stdio.h>
 #include <limits.h>
+#include <pwd.h>
+#include <stdarg.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <strings.h>
-#include <unistd.h>
-#include <dirent.h>
-#include <pwd.h>
-#include <ctype.h>
-#include <time.h>
-#include <stdarg.h>
 #include <sys/stat.h>
 #include <sys/types.h>
-#include <X11/Xlib.h>
-#include <X11/Xutil.h>
-#include <X11/keysym.h>
-#include <X11/cursorfont.h>
-#include <X11/Xatom.h>
-#include "gnuosicon.h"
-#include "wmver.h"
-#include "wmpal.h"
+#include <time.h>
+#include <unistd.h>
 
 /* ================================================================ */
 /* Constants and macros */
 /* ================================================================ */
-#define MAX_DRIVES   16
-#define MAX_FILES    4096
-#define MAX_PATH     1024
-#define MAX_NAME     256
+#define MAX_DRIVES 16
+#define MAX_FILES 4096
+#define MAX_PATH 1024
+#define MAX_NAME 256
 
-#define WIN_W        900
-#define WIN_H        620
-#define MENUBAR_H    24
-#define SEPARATOR_H  6
-#define DRIVEBAR_H   30
-#define PATHBAR_H    0
-#define ROW_H        16
-#define CHAR_W       7
-#define MAX_COLS     3 // columns for short view
+#define WIN_W 900
+#define WIN_H 620
+#define MENUBAR_H 24
+#define SEPARATOR_H 6
+#define DRIVEBAR_H 30
+#define PATHBAR_H 0
+#define ROW_H 16
+#define CHAR_W 7
+#define MAX_COLS 3 // columns for short view
 
-#define SCROLLBAR_W  18
+#define SCROLLBAR_W 18
 
 /* ================================================================ */
 /* Data structures */
@@ -69,13 +69,13 @@ typedef struct {
   char label[32]; // e.g. "/" or "/boot/efi"
   char mount[MAX_PATH];
   char fs[16];
-  int  is_floppy;
+  int is_floppy;
 } Drive;
 
 typedef struct {
   char name[MAX_NAME];
-  int  is_dir;
-  int  is_exec;
+  int is_dir;
+  int is_exec;
   long size;
   time_t mtime;
 } FileEntry;
@@ -124,7 +124,8 @@ static DialogType dlg_type = DIALOG_NONE;
 static char dlg_prompt[512];
 static char dlg_input[MAX_PATH];
 static int dlg_input_pos = 0;
-static int dlg_result = -1; // Dialog Yes/No question answer: -1 pending, 0 no, 1 yes, 2 all
+static int dlg_result =
+    -1; // Dialog Yes/No question answer: -1 pending, 0 no, 1 yes, 2 all
 static char dlg_browse_path[MAX_PATH];
 static FileEntry dlg_browse_files[MAX_FILES];
 static int dlg_browse_nfiles = 0;
@@ -152,14 +153,15 @@ static int special_menu_separators = 1;
 static int operation_cancel = 0;
 static int operation_in_progress = 0;
 static char progress_action[32] = ""; // "Copy", "Move", "Delete"
-static int progress_processed = 0; // count of items touched
+static int progress_processed = 0;    // count of items touched
 
 /* ================================================================ */
 /* Utility */
 /* ================================================================ */
 static int cmp_entries(const void *a, const void *b) {
   const FileEntry *fa = a, *fb = b;
-  if (fa->is_dir != fb->is_dir) return fb->is_dir - fa->is_dir;
+  if (fa->is_dir != fb->is_dir)
+    return fb->is_dir - fa->is_dir;
   return strcasecmp(fa->name, fb->name);
 }
 
@@ -179,7 +181,7 @@ static void get_home(char *out) {
     h = pw ? pw->pw_dir : "/";
   }
   strncpy(out, h, MAX_PATH - 1);
-  out[MAX_PATH-1] = 0;
+  out[MAX_PATH - 1] = 0;
 }
 
 static void progress_dialog_rect(int *x, int *y, int *w, int *h) {
@@ -193,13 +195,16 @@ static int file_area_content_w(void) {
   int area_y = MENUBAR_H + DRIVEBAR_H + PATHBAR_H;
   int area_h = win_h - area_y;
   int rows = area_h / ROW_H;
-  if (rows < 1) rows = 1;
+  if (rows < 1)
+    rows = 1;
   /* Compute cols from the full width */
   int cols = win_w / 300;
-  if (cols < 1) cols = 1;
+  if (cols < 1)
+    cols = 1;
   int total_rows = (nfiles + cols - 1) / cols;
   int w = win_w;
-  if (total_rows > rows) w -= SCROLLBAR_W;
+  if (total_rows > rows)
+    w -= SCROLLBAR_W;
   return w;
 }
 
@@ -208,22 +213,25 @@ static int visible_rows(void) {
   int area_y = MENUBAR_H + DRIVEBAR_H + PATHBAR_H;
   int area_h = win_h - area_y;
   int rows = area_h / ROW_H;
-  if (rows < 1) rows = 1;
+  if (rows < 1)
+    rows = 1;
   return rows;
 }
 
 static int file_cols(void) {
   int content_w = file_area_content_w();
   int cols = content_w / 300;
-  if (cols < 1) cols = 1;
+  if (cols < 1)
+    cols = 1;
   return cols;
 }
 
-static int file_rows(void) {   // rename of visible_rows, to disambiguate
+static int file_rows(void) { // rename of visible_rows, to disambiguate
   int area_y = MENUBAR_H + DRIVEBAR_H + PATHBAR_H;
   int area_h = win_h - area_y;
   int rows = area_h / ROW_H;
-  if (rows < 1) rows = 1;
+  if (rows < 1)
+    rows = 1;
   return rows;
 }
 
@@ -234,20 +242,22 @@ static int total_file_rows(void) {
 
 static int max_scroll_rows(void) {
   int m = total_file_rows() - file_rows();
-  if (m < 0) m = 0;
+  if (m < 0)
+    m = 0;
   return m;
 }
 
 static void clamp_scroll(void) {
   int m = max_scroll_rows();
-  if (top_index < 0) top_index = 0;
-  if (top_index > m) top_index = m;
+  if (top_index < 0)
+    top_index = 0;
+  if (top_index > m)
+    top_index = m;
 }
 
 /* Fill in the geometry of the scrollbar */
 static void scrollbar_geometry(int *sb_x, int *sb_y, int *sb_w, int *sb_h,
-                               int *arrow_h,
-                               int *track_y, int *track_h,
+                               int *arrow_h, int *track_y, int *track_h,
                                int *thumb_y, int *thumb_h) {
   int area_y = MENUBAR_H + DRIVEBAR_H + PATHBAR_H;
   *sb_x = win_w - SCROLLBAR_W;
@@ -257,13 +267,15 @@ static void scrollbar_geometry(int *sb_x, int *sb_y, int *sb_w, int *sb_h,
   *arrow_h = 16;
   *track_y = *sb_y + *arrow_h;
   *track_h = *sb_h - 2 * *arrow_h;
-  int rows = file_rows(); // visible rows
+  int rows = file_rows();             // visible rows
   int total_rows = total_file_rows(); // total rows of files
-  int m = max_scroll_rows(); // rows we can scroll through
+  int m = max_scroll_rows();          // rows we can scroll through
   /* Thumb size proportional to visible area */
   *thumb_h = (*track_h * rows) / (total_rows > 0 ? total_rows : 1);
-  if (*thumb_h < 16) *thumb_h = 16;
-  if (*thumb_h > *track_h) *thumb_h = *track_h;
+  if (*thumb_h < 16)
+    *thumb_h = 16;
+  if (*thumb_h > *track_h)
+    *thumb_h = *track_h;
   /* Thumb position proportional to max rows */
   *thumb_y = *track_y;
   if (m > 0)
@@ -274,13 +286,13 @@ static void set_window_icon(Window w) {
   Atom net_wm_icon = XInternAtom(dpy, "_NET_WM_ICON", False);
   unsigned long npixels = (unsigned long)APP_ICON_W * APP_ICON_H;
   unsigned long *payload = malloc((2 + npixels) * sizeof(unsigned long));
-  if (!payload) return;
+  if (!payload)
+    return;
   payload[0] = APP_ICON_W;
   payload[1] = APP_ICON_H;
   memcpy(payload + 2, gnuos_icon_argb, npixels * sizeof(unsigned long));
-  XChangeProperty(dpy, w, net_wm_icon, XA_CARDINAL, 32,
-                  PropModeReplace, (unsigned char *)payload,
-                  (int)(2 + npixels));
+  XChangeProperty(dpy, w, net_wm_icon, XA_CARDINAL, 32, PropModeReplace,
+                  (unsigned char *)payload, (int)(2 + npixels));
   XFlush(dpy);
   free(payload);
 }
@@ -291,16 +303,20 @@ static void set_window_icon(Window w) {
 static void detect_drives(void) {
   ndrives = 0;
   FILE *fp = popen("df -T 2>/dev/null", "r");
-  if (!fp) return;
+  if (!fp)
+    return;
   char line[1024];
   /* skip header */
-  if (!fgets(line, sizeof(line), fp)) { pclose(fp); return; }
+  if (!fgets(line, sizeof(line), fp)) {
+    pclose(fp);
+    return;
+  }
   while (fgets(line, sizeof(line), fp) && ndrives < MAX_DRIVES) {
     char dev[256], fs[32], mount[MAX_PATH];
     unsigned long blocks, used, avail;
     int pct;
-    if (sscanf(line, "%255s %31s %lu %lu %lu %d%% %1023s",
-               dev, fs, &blocks, &used, &avail, &pct, mount) != 7)
+    if (sscanf(line, "%255s %31s %lu %lu %lu %d%% %1023s", dev, fs, &blocks,
+               &used, &avail, &pct, mount) != 7)
       continue;
     if (strcmp(fs, "ext4") != 0 && strcmp(fs, "ext3") != 0 &&
         strcmp(fs, "ext2") != 0 && strcmp(fs, "vfat") != 0 &&
@@ -308,19 +324,18 @@ static void detect_drives(void) {
         strcmp(fs, "xfs") != 0 && strcmp(fs, "btrfs") != 0)
       continue;
     /* skip pseudo filesystems */
-    if (strncmp(dev, "/dev/", 5) != 0 &&
-        strncmp(dev, "tmpfs", 5) != 0 &&
+    if (strncmp(dev, "/dev/", 5) != 0 && strncmp(dev, "tmpfs", 5) != 0 &&
         strncmp(dev, "overlay", 7) != 0)
       continue;
-    strncpy(drives[ndrives].mount, mount, MAX_PATH-1);
+    strncpy(drives[ndrives].mount, mount, MAX_PATH - 1);
     strncpy(drives[ndrives].fs, fs, 15);
     if (strcmp(mount, "/") == 0)
       strcpy(drives[ndrives].label, "/");
     else
       strncpy(drives[ndrives].label, mount, 31);
-    drives[ndrives].is_floppy = (strcmp(fs,"vfat")==0 ||
-                                 strcmp(fs,"fat")==0 ||
-                                 strcmp(fs,"msdos")==0);
+    drives[ndrives].is_floppy =
+        (strcmp(fs, "vfat") == 0 || strcmp(fs, "fat") == 0 ||
+         strcmp(fs, "msdos") == 0);
     ndrives++;
   }
   pclose(fp);
@@ -346,16 +361,18 @@ static void load_dir(const char *path) {
   }
   struct dirent *de;
   while ((de = readdir(d)) && nfiles < MAX_FILES) {
-    if (strcmp(de->d_name, ".") == 0) continue; // keep ".." for navigation
+    if (strcmp(de->d_name, ".") == 0)
+      continue; // keep ".." for navigation
     char full[MAX_PATH];
     snprintf(full, sizeof(full), "%s/%s", path, de->d_name);
     struct stat st;
-    if (stat(full, &st) != 0) continue;
+    if (stat(full, &st) != 0)
+      continue;
     FileEntry *fe = &files[nfiles];
-    strncpy(fe->name, de->d_name, MAX_NAME-1);
-    fe->name[MAX_NAME-1] = 0;
+    strncpy(fe->name, de->d_name, MAX_NAME - 1);
+    fe->name[MAX_NAME - 1] = 0;
     fe->is_dir = S_ISDIR(st.st_mode);
-    fe->is_exec = !fe->is_dir && (st.st_mode & (S_IXUSR|S_IXGRP|S_IXOTH));
+    fe->is_exec = !fe->is_dir && (st.st_mode & (S_IXUSR | S_IXGRP | S_IXOTH));
     fe->size = st.st_size;
     fe->mtime = st.st_mtime;
     nfiles++;
@@ -378,8 +395,8 @@ static void change_dir(const char *path) {
     set_status("Not a directory: %s", real);
     return;
   }
-  strncpy(path_history, cwd, MAX_PATH-1);
-  strncpy(cwd, real, MAX_PATH-1);
+  strncpy(path_history, cwd, MAX_PATH - 1);
+  strncpy(cwd, real, MAX_PATH - 1);
   load_dir(cwd);
   set_status("%s", cwd);
 }
@@ -401,7 +418,7 @@ static void fill_rect(int x, int y, int w, int h, unsigned long c) {
 
 static void draw_rect(int x, int y, int w, int h, unsigned long c) {
   set_fg(c);
-  XDrawRectangle(dpy, win, gc, x, y, w-1, h-1);
+  XDrawRectangle(dpy, win, gc, x, y, w - 1, h - 1);
 }
 
 static void draw_bevel(int x, int y, int width, int height, int raised) {
@@ -425,13 +442,14 @@ static void draw_floppy_drive(int x, int y, int w, int h, int active) {
   /* slot */
   int sw = w * 80 / 100;
   int sx = x + (w - sw) / 2;
-  fill_rect(sx, y + h/2 - 1, sw, 2, active ? COL_FG : COL_HI_FG);
+  fill_rect(sx, y + h / 2 - 1, sw, 2, active ? COL_FG : COL_HI_FG);
   set_fg(active ? COL_HI_FG : COL_FG);
-  XDrawRectangle(dpy, win, gc, sx, y + h/2 - 1, sw, 2);
+  XDrawRectangle(dpy, win, gc, sx, y + h / 2 - 1, sw, 2);
   /* lock area */
-  fill_rect(x + w/2 - sw/4, y + h/2 - 2, sw/2, 4, active ? COL_FG : COL_HI_FG);
+  fill_rect(x + w / 2 - sw / 4, y + h / 2 - 2, sw / 2, 4,
+            active ? COL_FG : COL_HI_FG);
   set_fg(active ? COL_HI_FG : COL_FG);
-  XDrawRectangle(dpy, win, gc, x + w/2 - sw/4, y + h/2 - 2, sw/2, 4);
+  XDrawRectangle(dpy, win, gc, x + w / 2 - sw / 4, y + h / 2 - 2, sw / 2, 4);
 }
 
 /* Draw a floppy-disk icon */
@@ -446,20 +464,27 @@ static void draw_floppy(int x, int y, int w, int h, int active) {
   int sx = x + (w - sw) / 2;
   fill_rect(sx, y + 1, sw, h / 3, active ? COL_FG : COL_HI_FG);
   set_fg(active ? COL_HI_FG : COL_FG);
-  XDrawRectangle(dpy, win, gc, sx, y + 1, sw-1, h/3 - 1);
+  XDrawRectangle(dpy, win, gc, sx, y + 1, sw - 1, h / 3 - 1);
   /* label */
-  fill_rect(x + 2, y + h/2, w - 4, h/2 - 3, active ? COL_FG : COL_HI_FG);
+  fill_rect(x + 2, y + h / 2, w - 4, h / 2 - 3, active ? COL_FG : COL_HI_FG);
   set_fg(active ? COL_HI_FG : COL_FG);
-  XDrawRectangle(dpy, win, gc, x + 2, y + h/2, w - 5, h/2 - 4);
+  XDrawRectangle(dpy, win, gc, x + 2, y + h / 2, w - 5, h / 2 - 4);
 }
 
 /* Shortening a string with "..." to fit maxlen chars */
 static void ellipsize(const char *src, char *dst, int maxlen) {
   int len = strlen(src);
-  if (len <= maxlen) { strcpy(dst, src); return; }
-  if (maxlen < 4) { strncpy(dst, src, maxlen); dst[maxlen]=0; return; }
+  if (len <= maxlen) {
+    strcpy(dst, src);
+    return;
+  }
+  if (maxlen < 4) {
+    strncpy(dst, src, maxlen);
+    dst[maxlen] = 0;
+    return;
+  }
   strncpy(dst, src, maxlen - 3);
-  dst[maxlen-3] = 0;
+  dst[maxlen - 3] = 0;
   strcat(dst, "...");
 }
 
@@ -469,16 +494,18 @@ static void start_about_dialog(void) {
 }
 
 static void draw_special_menu(void) {
-  if (!special_menu_open) return;
+  if (!special_menu_open)
+    return;
   int x = 6 + 40 + 40; // special x position after File and View
   int y = MENUBAR_H;
   int w = 220;
-  const char *items[] = { "About...", "Exit" };
+  const char *items[] = {"About...", "Exit"};
   int n = 2;
   int h = n * 18 + 6;
   fill_rect(x, y, w, h + SEPARATOR_H * special_menu_separators, COL_MENU_BG);
   set_fg(COL_FG);
-  XDrawRectangle(dpy, win, gc, x, y, w-1, h-1 + SEPARATOR_H * special_menu_separators);
+  XDrawRectangle(dpy, win, gc, x, y, w - 1,
+                 h - 1 + SEPARATOR_H * special_menu_separators);
   for (int i = 0; i < n; i++) {
     if (i == 1) { // separator before Exit
       set_fg(COL_BTN_LO);
@@ -496,13 +523,15 @@ static void draw_special_menu(void) {
 static void draw_menubar(void) {
   fill_rect(0, 0, win_w, MENUBAR_H, COL_MENU_BG);
   set_fg(COL_FG);
-  XDrawLine(dpy, win, gc, 0, MENUBAR_H-1, win_w, MENUBAR_H-1);
+  XDrawLine(dpy, win, gc, 0, MENUBAR_H - 1, win_w, MENUBAR_H - 1);
   int x = 6;
-  const char *items[] = { "File", "View", "Special" };
+  const char *items[] = {"File", "View", "Special"};
   for (int i = 0; i < 3; i++) {
     int w = strlen(items[i]) * CHAR_W + 12;
-    int highlighted = (i == 2) ? special_menu_open : (menu_open && menu_item == i);
-    if (highlighted) fill_rect(x, 2, w, MENUBAR_H-5, COL_BLACK); // COL_HI_BG
+    int highlighted =
+        (i == 2) ? special_menu_open : (menu_open && menu_item == i);
+    if (highlighted)
+      fill_rect(x, 2, w, MENUBAR_H - 5, COL_BLACK); // COL_HI_BG
     set_fg(highlighted ? COL_HI_FG : COL_FG);
     draw_text(x + 6, MENUBAR_H - 8, items[i], 0);
     x += w;
@@ -517,30 +546,32 @@ static void draw_menubar(void) {
 static void draw_drivebar(void) {
   fill_rect(0, MENUBAR_H, win_w, DRIVEBAR_H, COL_BG);
   set_fg(COL_FG);
-  XDrawLine(dpy, win, gc, 0, MENUBAR_H + DRIVEBAR_H - 1, win_w, MENUBAR_H + DRIVEBAR_H - 1);
+  XDrawLine(dpy, win, gc, 0, MENUBAR_H + DRIVEBAR_H - 1, win_w,
+            MENUBAR_H + DRIVEBAR_H - 1);
   int x = 8;
   int y = MENUBAR_H + 2;
   for (int i = 0; i < ndrives; i++) {
     int active = (i == cur_drive);
     /* fill with white when inactive and with black when active */
-    fill_rect(x, y, 60+32, 26, active ? COL_FG : COL_BG); // +32
+    fill_rect(x, y, 60 + 32, 26, active ? COL_FG : COL_BG); // +32
     if (active) {
       /* black body + white border */
-      draw_rect(x, y, 60+32, 26, COL_HI_FG); // +32
-      draw_rect(x+1, y+1, 58+32, 24, COL_HI_FG); // +32
+      draw_rect(x, y, 60 + 32, 26, COL_HI_FG);         // +32
+      draw_rect(x + 1, y + 1, 58 + 32, 24, COL_HI_FG); // +32
     } else {
       /* white body + dark border + inner highlight */
-      draw_rect(x, y, 60+32, 26, COL_BTN_LO); // +32
-      draw_rect(x+1, y+1, 58+32, 24, COL_BTN_HI); // +32
+      draw_rect(x, y, 60 + 32, 26, COL_BTN_LO);         // +32
+      draw_rect(x + 1, y + 1, 58 + 32, 24, COL_BTN_HI); // +32
     }
-    draw_floppy_drive(x + 4, y + 5, 16+32, 16, active);
+    draw_floppy_drive(x + 4, y + 5, 16 + 32, 16, active);
     char lbl[16];
     ellipsize(drives[i].label, lbl, 5);
     /* label color depends on the state */
     set_fg(active ? COL_HI_FG : COL_FG);
-    draw_text(x + 24+32, y + 17, lbl, 0); // +32
-    x += 68+32; // +32
-    if (x + 60+32 > win_w - 200) break; // +32
+    draw_text(x + 24 + 32, y + 17, lbl, 0); // +32
+    x += 68 + 32;                           // +32
+    if (x + 60 + 32 > win_w - 200)
+      break; // +32
   }
   /* path on the right of the drive icon */
   if (x + 10 < win_w) {
@@ -581,13 +612,17 @@ static void draw_filelist(void) {
   int cols = file_cols();
   int start = top_index * cols;
   int end = start + file_rows() * cols;
-  if (end > nfiles) end = nfiles;
+  if (end > nfiles)
+    end = nfiles;
   for (int i = start; i < end; i++) {
     int x, y, w, h;
     file_row_rect(i, &x, &y, &w, &h);
-    if (y + ROW_H <= area_y) continue;
-    if (y >= area_y + area_h) continue;
-    if (x + w > content_w) continue;
+    if (y + ROW_H <= area_y)
+      continue;
+    if (y >= area_y + area_h)
+      continue;
+    if (x + w > content_w)
+      continue;
     int selected = (i >= sel_start && i <= sel_end);
     /* Selection background */
     if (selected) {
@@ -609,8 +644,10 @@ static void draw_filelist(void) {
     }
     if (!short_view) {
       char info[64];
-      if (files[i].is_dir) strcpy(info, "<DIR>");
-      else snprintf(info, sizeof(info), "%8ld", files[i].size);
+      if (files[i].is_dir)
+        strcpy(info, "<DIR>");
+      else
+        snprintf(info, sizeof(info), "%8ld", files[i].size);
       int tx = x + 200;
       if (tx + 60 < content_w) {
         set_fg(fg);
@@ -623,8 +660,7 @@ static void draw_filelist(void) {
   if (total_file_rows() > file_rows()) {
     int sb_x, sb_y, sb_w, sb_h;
     int arrow_h, track_y, track_h, thumb_y, thumb_h;
-    scrollbar_geometry(&sb_x, &sb_y, &sb_w, &sb_h,
-                       &arrow_h, &track_y, &track_h,
+    scrollbar_geometry(&sb_x, &sb_y, &sb_w, &sb_h, &arrow_h, &track_y, &track_h,
                        &thumb_y, &thumb_h);
     /* Lane */
     fill_rect(sb_x, sb_y, sb_w, sb_h, COL_LIGHTGRAY);
@@ -645,13 +681,11 @@ static void draw_filelist(void) {
     int dn_y = sb_y + sb_h - arrow_h;
     fill_rect(sb_x + 1, dn_y, sb_w - 2, arrow_h - 1, COL_BTN);
     draw_bevel(sb_x + 1, dn_y, sb_w - 2, arrow_h - 1, 1);
-    XPoint dn_pts[] = {{sb_x + 5, dn_y + 8},
-                       {sb_x + sb_w / 2, dn_y + arrow_h - 4},
-                       {sb_x + sb_w - 5, dn_y + 8},
-                       {sb_x + sb_w - 7, dn_y + 8},
-                       {sb_x + sb_w - 7, dn_y + 4},
-                       {sb_x + 7, dn_y + 4},
-                       {sb_x + 7, dn_y + 8}};
+    XPoint dn_pts[] = {
+        {sb_x + 5, dn_y + 8},        {sb_x + sb_w / 2, dn_y + arrow_h - 4},
+        {sb_x + sb_w - 5, dn_y + 8}, {sb_x + sb_w - 7, dn_y + 8},
+        {sb_x + sb_w - 7, dn_y + 4}, {sb_x + 7, dn_y + 4},
+        {sb_x + 7, dn_y + 8}};
     XSetForeground(dpy, gc, COL_BLACK);
     XFillPolygon(dpy, win, gc, dn_pts, 7, Convex, CoordModeOrigin);
     /* Puller */
@@ -661,17 +695,19 @@ static void draw_filelist(void) {
 }
 
 static void draw_file_menu(void) {
-  if (!menu_open || menu_item != 0) return;
+  if (!menu_open || menu_item != 0)
+    return;
   int x = 6;
   int y = MENUBAR_H;
   int w = 220;
-  const char *items[] = { "Open", "Copy...", "Move...", "Rename...", "Delete", "Create Subdirectory..." };
+  const char *items[] = {"Open",      "Copy...", "Move...",
+                         "Rename...", "Delete",  "Create Subdirectory..."};
   int n = 6;
   int h = n * 18 + 6;
   /* background + border */
   fill_rect(x, y, w, h, COL_MENU_BG);
   set_fg(COL_FG);
-  XDrawRectangle(dpy, win, gc, x, y, w-1, h-1);
+  XDrawRectangle(dpy, win, gc, x, y, w - 1, h - 1);
   /* items on top */
   for (int i = 0; i < n; i++) {
     draw_text(x + 10, y + 16 + i * 18, items[i], 0);
@@ -682,27 +718,53 @@ static void draw_file_menu(void) {
 /* Dialog drawing & handling */
 /* ================================================================ */
 static void draw_dialog(void) {
-  if (dlg_type == DIALOG_NONE) return;
+  if (dlg_type == DIALOG_NONE)
+    return;
   int dw, dh;
   char dlg_title[32] = {0};
   switch (dlg_type) {
-  case DIALOG_INPUT:    dw = 460; dh = 120; strcat(dlg_title, "Input"); break;
+  case DIALOG_INPUT:
+    dw = 460;
+    dh = 120;
+    strcat(dlg_title, "Input");
+    break;
   case DIALOG_DELETE:
-  case DIALOG_CONFIRM:  dw = 460; dh = 120; strcat(dlg_title, "Confirm"); break;
-  case DIALOG_BROWSE:   dw = 520; dh = 400; strcat(dlg_title, "Browse"); break;
-  case DIALOG_MESSAGE:  dw = 400; dh = 110; strcat(dlg_title, "Message"); break;
-  case DIALOG_ABOUT:    dw = 400; dh = 240; strcat(dlg_title, "About"); break;
-  case DIALOG_PROGRESS: dw = 380; dh = 140; strcat(dlg_title, "Please wait"); break;
-  default: return;
+  case DIALOG_CONFIRM:
+    dw = 460;
+    dh = 120;
+    strcat(dlg_title, "Confirm");
+    break;
+  case DIALOG_BROWSE:
+    dw = 520;
+    dh = 400;
+    strcat(dlg_title, "Browse");
+    break;
+  case DIALOG_MESSAGE:
+    dw = 400;
+    dh = 110;
+    strcat(dlg_title, "Message");
+    break;
+  case DIALOG_ABOUT:
+    dw = 400;
+    dh = 240;
+    strcat(dlg_title, "About");
+    break;
+  case DIALOG_PROGRESS:
+    dw = 380;
+    dh = 140;
+    strcat(dlg_title, "Please wait");
+    break;
+  default:
+    return;
   }
   int dx = (win_w - dw) / 2;
   int dy = (win_h - dh) / 2;
   /* outline, border, and dialog background */
-  fill_rect(dx-3, dy-3, dw+6, dh+6, COL_FG);
-  fill_rect(dx-2, dy-2, dw+4, dh+4, COL_HI_BG);
-  fill_rect(dx+1, dy+1, dw-2, dh-2, COL_DLG_BG);
+  fill_rect(dx - 3, dy - 3, dw + 6, dh + 6, COL_FG);
+  fill_rect(dx - 2, dy - 2, dw + 4, dh + 4, COL_HI_BG);
+  fill_rect(dx + 1, dy + 1, dw - 2, dh - 2, COL_DLG_BG);
   /* title bar */
-  fill_rect(dx+2, dy+2, dw-4, 20, COL_HI_BG);
+  fill_rect(dx + 2, dy + 2, dw - 4, 20, COL_HI_BG);
   set_fg(COL_HI_FG);
   int w0 = strlen(dlg_title) * CHAR_W;
   draw_text(dx + (dw - w0) / 2, dy + 17, dlg_title, 0);
@@ -757,11 +819,12 @@ static void draw_dialog(void) {
       const char *nm = dlg_browse_files[idx].name;
       char tb[128];
       ellipsize(nm, tb, (lw - 20) / CHAR_W);
-      draw_text(lx + 8, ry + ROW_H - 3, tb,
-                dlg_browse_files[idx].is_dir);
+      draw_text(lx + 8, ry + ROW_H - 3, tb, dlg_browse_files[idx].is_dir);
     }
     set_fg(COL_FG);
-    draw_text(dx + 16, dy + dh - 14, "[Enter]=Open dir  [Backspace]=Up  [Tab]=Choose  [Esc]=Cancel", 0);
+    draw_text(dx + 16, dy + dh - 14,
+              "[Enter]=Open dir  [Backspace]=Up  [Tab]=Choose  [Esc]=Cancel",
+              0);
   } else if (dlg_type == DIALOG_ABOUT) {
     /* floppy icon */
     int ix = dx + 40;
@@ -787,7 +850,7 @@ static void draw_dialog(void) {
     int by = dy + dh - 46;
     fill_rect(bx, by, bw, bh, COL_BTN);
     draw_rect(bx, by, bw, bh, COL_BTN_LO);
-    draw_rect(bx+1, by+1, bw-2, bh-2, COL_BTN_HI);
+    draw_rect(bx + 1, by + 1, bw - 2, bh - 2, COL_BTN_HI);
     int oktw = strlen("OK") * CHAR_W;
     set_fg(COL_FG);
     draw_text(bx + (bw - oktw) / 2, by + 17, "OK", 0);
@@ -804,7 +867,7 @@ static void draw_dialog(void) {
     int by = dy + dh - bh - 12;
     fill_rect(bx, by, bw, bh, COL_BTN);
     draw_rect(bx, by, bw, bh, COL_BTN_LO);
-    draw_rect(bx+1, by+1, bw-2, bh-2, COL_BTN_HI);
+    draw_rect(bx + 1, by + 1, bw - 2, bh - 2, COL_BTN_HI);
     int tw = strlen("Cancel") * CHAR_W;
     set_fg(COL_FG);
     draw_text(bx + (bw - tw) / 2, by + 17, "Cancel", 0);
@@ -819,7 +882,8 @@ static void draw_all(void) {
   draw_filelist();
   draw_file_menu();
   draw_special_menu();
-  if (dlg_type == DIALOG_PROGRESS) draw_dialog();
+  if (dlg_type == DIALOG_PROGRESS)
+    draw_dialog();
   XFlush(dpy);
 }
 
@@ -829,7 +893,8 @@ static int pump_events(void) {
     XEvent e;
     XNextEvent(dpy, &e);
     if (e.type == Expose) {
-      if (e.xexpose.count == 0) draw_all();
+      if (e.xexpose.count == 0)
+        draw_all();
     } else if (e.type == ButtonPress) {
       if (e.xbutton.button == 1 && dlg_type == DIALOG_PROGRESS) {
         int px, py, pw, ph;
@@ -855,8 +920,8 @@ static int pump_events(void) {
 }
 
 static void begin_progress(const char *action) {
-  strncpy(progress_action, action, sizeof(progress_action)-1);
-  progress_action[sizeof(progress_action)-1] = 0;
+  strncpy(progress_action, action, sizeof(progress_action) - 1);
+  progress_action[sizeof(progress_action) - 1] = 0;
   progress_processed = 0;
   operation_cancel = 0;
   operation_in_progress = 1;
@@ -876,23 +941,28 @@ static void end_progress(void) {
 /* Load directory into browser */
 static void load_browse_dir(const char *path) {
   char real[MAX_PATH];
-  if (!realpath(path, real)) return;
-  strncpy(dlg_browse_path, real, MAX_PATH-1);
+  if (!realpath(path, real))
+    return;
+  strncpy(dlg_browse_path, real, MAX_PATH - 1);
   dlg_browse_nfiles = 0;
   DIR *d = opendir(real);
-  if (!d) return;
+  if (!d)
+    return;
   struct dirent *de;
   while ((de = readdir(d)) && dlg_browse_nfiles < MAX_FILES) {
-    if (strcmp(de->d_name, ".") == 0) continue;
+    if (strcmp(de->d_name, ".") == 0)
+      continue;
     char full[MAX_PATH];
     snprintf(full, sizeof(full), "%s/%s", real, de->d_name);
     struct stat st;
-    if (stat(full, &st) != 0) continue;
+    if (stat(full, &st) != 0)
+      continue;
     /* only show directories in browser */
-    if (!S_ISDIR(st.st_mode)) continue;
+    if (!S_ISDIR(st.st_mode))
+      continue;
     FileEntry *fe = &dlg_browse_files[dlg_browse_nfiles];
-    strncpy(fe->name, de->d_name, MAX_NAME-1);
-    fe->name[MAX_NAME-1] = 0;
+    strncpy(fe->name, de->d_name, MAX_NAME - 1);
+    fe->name[MAX_NAME - 1] = 0;
     fe->is_dir = 1;
     fe->is_exec = 0;
     dlg_browse_nfiles++;
@@ -907,7 +977,8 @@ static void load_browse_dir(const char *path) {
         FileEntry t = dlg_browse_files[i];
         dlg_browse_files[i] = dlg_browse_files[j];
         dlg_browse_files[j] = t;
-      } else if (a_dot == b_dot && strcasecmp(dlg_browse_files[i].name, dlg_browse_files[j].name) > 0) {
+      } else if (a_dot == b_dot && strcasecmp(dlg_browse_files[i].name,
+                                              dlg_browse_files[j].name) > 0) {
         FileEntry t = dlg_browse_files[i];
         dlg_browse_files[i] = dlg_browse_files[j];
         dlg_browse_files[j] = t;
@@ -918,9 +989,11 @@ static void load_browse_dir(const char *path) {
   dlg_browse_top = 0;
 }
 
-static void do_copy_file(const char *src, const char *dst, int move, int *overwrite_all) {
+static void do_copy_file(const char *src, const char *dst, int move,
+                         int *overwrite_all) {
   struct stat st;
-  if (stat(src, &st) != 0) return;
+  if (stat(src, &st) != 0)
+    return;
 
   /* ask if exists */
   if (access(dst, F_OK) == 0 && !*overwrite_all) {
@@ -930,7 +1003,7 @@ static void do_copy_file(const char *src, const char *dst, int move, int *overwr
     char efn[64];
     ellipsize(dfn, efn, 48); // 45 chars + "..."
     snprintf(prompt, sizeof(prompt), "Overwrite \"%s\"?", efn);
-    strncpy(dlg_prompt, prompt, sizeof(dlg_prompt)-1);
+    strncpy(dlg_prompt, prompt, sizeof(dlg_prompt) - 1);
     dlg_type = DIALOG_CONFIRM;
     dlg_result = -1;
     draw_dialog();
@@ -940,13 +1013,20 @@ static void do_copy_file(const char *src, const char *dst, int move, int *overwr
       XNextEvent(dpy, &e);
       if (e.type == KeyPress) {
         KeySym k = XLookupKeysym(&e.xkey, 0);
-        if (k == XK_y || k == XK_Y) dlg_result = 1;
-        else if (k == XK_n || k == XK_N) dlg_result = 0;
-        else if (k == XK_a || k == XK_A) dlg_result = 2;
+        if (k == XK_y || k == XK_Y)
+          dlg_result = 1;
+        else if (k == XK_n || k == XK_N)
+          dlg_result = 0;
+        else if (k == XK_a || k == XK_A)
+          dlg_result = 2;
       }
     }
-    if (dlg_result == 0) { dlg_type = DIALOG_NONE; return; }
-    if (dlg_result == 2) *overwrite_all = 1;
+    if (dlg_result == 0) {
+      dlg_type = DIALOG_NONE;
+      return;
+    }
+    if (dlg_result == 2)
+      *overwrite_all = 1;
     dlg_type = DIALOG_NONE;
   }
 
@@ -954,33 +1034,46 @@ static void do_copy_file(const char *src, const char *dst, int move, int *overwr
     if (rename(src, dst) != 0) {
       /* copy then delete */
       FILE *in = fopen(src, "rb");
-      if (!in) return;
+      if (!in)
+        return;
       FILE *out = fopen(dst, "wb");
-      if (!out) { fclose(in); return; }
+      if (!out) {
+        fclose(in);
+        return;
+      }
       char buf[65536];
       size_t n;
       while ((n = fread(buf, 1, sizeof(buf), in)) > 0)
         fwrite(buf, 1, n, out);
-      fclose(in); fclose(out);
+      fclose(in);
+      fclose(out);
       unlink(src);
     }
   } else {
     FILE *in = fopen(src, "rb");
-    if (!in) return;
+    if (!in)
+      return;
     FILE *out = fopen(dst, "wb");
-    if (!out) { fclose(in); return; }
+    if (!out) {
+      fclose(in);
+      return;
+    }
     char buf[65536];
     size_t n;
     while ((n = fread(buf, 1, sizeof(buf), in)) > 0)
       fwrite(buf, 1, n, out);
-    fclose(in); fclose(out);
+    fclose(in);
+    fclose(out);
   }
 }
 
-static void copy_tree(const char *src, const char *dst, int move, int *overwrite_all) {
-  if (operation_cancel) return;
+static void copy_tree(const char *src, const char *dst, int move,
+                      int *overwrite_all) {
+  if (operation_cancel)
+    return;
   struct stat st;
-  if (stat(src, &st) != 0) return;
+  if (stat(src, &st) != 0)
+    return;
   /* Not allow copying into itself or one of its own subdirs */
   size_t sl = strlen(src);
   if (strncmp(dst, src, sl) == 0 && (dst[sl] == '/' || dst[sl] == '\0')) {
@@ -991,7 +1084,8 @@ static void copy_tree(const char *src, const char *dst, int move, int *overwrite
     /* Single file method for regular files */
     do_copy_file(src, dst, move, overwrite_all);
     progress_processed++;
-    if ((progress_processed % 16) == 0) pump_events();
+    if ((progress_processed % 16) == 0)
+      pump_events();
     return;
   }
   /* Create destination directory when needed */
@@ -1012,7 +1106,10 @@ static void copy_tree(const char *src, const char *dst, int move, int *overwrite
   }
   struct dirent *de;
   while ((de = readdir(d)) != NULL) {
-    if (operation_cancel) { closedir(d); return; }
+    if (operation_cancel) {
+      closedir(d);
+      return;
+    }
     if (strcmp(de->d_name, ".") == 0 || strcmp(de->d_name, "..") == 0)
       continue;
     char sfull[MAX_PATH], dfull[MAX_PATH];
@@ -1026,21 +1123,25 @@ static void copy_tree(const char *src, const char *dst, int move, int *overwrite
       set_status("Cannot remove %s: %s", src, strerror(errno));
   }
   progress_processed++;
-  if ((progress_processed % 16) == 0) pump_events();
+  if ((progress_processed % 16) == 0)
+    pump_events();
 }
 
 static void do_copy_move_to(const char *destdir, int move) {
   int overwrite_all = 0;
   for (int i = 0; i < clip_nfiles; i++) {
-    if (operation_cancel) break;
+    if (operation_cancel)
+      break;
     const char *src = clip_files[i];
     const char *base = strrchr(src, '/');
     base = base ? base + 1 : src;
     char dst[MAX_PATH];
     snprintf(dst, sizeof(dst), "%s/%s", destdir, base);
-    if (strcmp(src, dst) == 0) continue;
+    if (strcmp(src, dst) == 0)
+      continue;
     struct stat st;
-    if (stat(src, &st) != 0) continue;
+    if (stat(src, &st) != 0)
+      continue;
     if (S_ISDIR(st.st_mode)) {
       copy_tree(src, dst, move, &overwrite_all);
     } else {
@@ -1057,14 +1158,17 @@ static void do_copy_move_to(const char *destdir, int move) {
 }
 
 static void remove_tree(const char *path) {
-  if (operation_cancel) return;
+  if (operation_cancel)
+    return;
   struct stat st;
-  if (lstat(path, &st) != 0) return;
+  if (lstat(path, &st) != 0)
+    return;
   if (!S_ISDIR(st.st_mode)) {
     if (unlink(path) != 0)
       set_status("Cannot delete %s: %s", path, strerror(errno));
     progress_processed++;
-    if ((progress_processed % 16) == 0) pump_events();
+    if ((progress_processed % 16) == 0)
+      pump_events();
     return;
   }
   DIR *d = opendir(path);
@@ -1074,7 +1178,10 @@ static void remove_tree(const char *path) {
   }
   struct dirent *de;
   while ((de = readdir(d)) != NULL) {
-    if (operation_cancel) { closedir(d); return; }
+    if (operation_cancel) {
+      closedir(d);
+      return;
+    }
     if (strcmp(de->d_name, ".") == 0 || strcmp(de->d_name, "..") == 0)
       continue;
     char full[MAX_PATH];
@@ -1087,12 +1194,14 @@ static void remove_tree(const char *path) {
       set_status("Cannot remove directory %s: %s", path, strerror(errno));
   }
   progress_processed++;
-  if ((progress_processed % 16) == 0) pump_events();
+  if ((progress_processed % 16) == 0)
+    pump_events();
 }
 
 static void do_delete(void) {
   for (int i = sel_start; i <= sel_end && i < nfiles; i++) {
-    if (operation_cancel) break;
+    if (operation_cancel)
+      break;
     char full[MAX_PATH];
     snprintf(full, sizeof(full), "%s/%s", cwd, files[i].name);
     remove_tree(full);
@@ -1105,7 +1214,8 @@ static void do_delete(void) {
 }
 
 static void do_rename(const char *newname) {
-  if (sel_start != sel_end || sel_start >= nfiles) return;
+  if (sel_start != sel_end || sel_start >= nfiles)
+    return;
   char src[MAX_PATH], dst[MAX_PATH];
   snprintf(src, sizeof(src), "%s/%s", cwd, files[sel_start].name);
   snprintf(dst, sizeof(dst), "%s/%s", cwd, newname);
@@ -1127,22 +1237,22 @@ static void do_mkdir(const char *name) {
 /* ================================================================ */
 static void start_input_dialog(const char *prompt, const char *initial) {
   dlg_type = DIALOG_INPUT;
-  strncpy(dlg_prompt, prompt, sizeof(dlg_prompt)-1);
-  strncpy(dlg_input, initial ? initial : "", MAX_PATH-1);
-  dlg_input[MAX_PATH-1] = 0;
+  strncpy(dlg_prompt, prompt, sizeof(dlg_prompt) - 1);
+  strncpy(dlg_input, initial ? initial : "", MAX_PATH - 1);
+  dlg_input[MAX_PATH - 1] = 0;
   dlg_input_pos = strlen(dlg_input);
   dlg_result = -1;
 }
 
 static void start_delete_dialog(const char *prompt) {
   dlg_type = DIALOG_DELETE;
-  strncpy(dlg_prompt, prompt, sizeof(dlg_prompt)-1);
+  strncpy(dlg_prompt, prompt, sizeof(dlg_prompt) - 1);
   dlg_result = -1;
 }
 
 static void start_message_dialog(const char *prompt) {
   dlg_type = DIALOG_MESSAGE;
-  strncpy(dlg_prompt, prompt, sizeof(dlg_prompt)-1);
+  strncpy(dlg_prompt, prompt, sizeof(dlg_prompt) - 1);
   dlg_result = -1;
 }
 
@@ -1162,19 +1272,25 @@ static int run_input_dialog(char *out, int outsz) {
       KeySym k = XLookupKeysym(&e.xkey, 0);
       if (dlg_type == DIALOG_INPUT) {
         if (k == XK_Escape) {
-          dlg_type = DIALOG_NONE; dlg_result = 0; break;
+          dlg_type = DIALOG_NONE;
+          dlg_result = 0;
+          break;
         } else if (k == XK_Return || k == XK_KP_Enter) {
-          strncpy(out, dlg_input, outsz-1);
-          out[outsz-1] = 0;
-          dlg_type = DIALOG_NONE; dlg_result = 1; break;
+          strncpy(out, dlg_input, outsz - 1);
+          out[outsz - 1] = 0;
+          dlg_type = DIALOG_NONE;
+          dlg_result = 1;
+          break;
         } else if (k == XK_BackSpace) {
           if (dlg_input_pos > 0) {
             dlg_input[--dlg_input_pos] = 0;
           }
         } else if (k == XK_Left) {
-          if (dlg_input_pos > 0) dlg_input_pos--;
+          if (dlg_input_pos > 0)
+            dlg_input_pos--;
         } else if (k == XK_Right) {
-          if (dlg_input[dlg_input_pos]) dlg_input_pos++;
+          if (dlg_input[dlg_input_pos])
+            dlg_input_pos++;
         } else if (k == XK_Home) {
           dlg_input_pos = 0;
         } else if (k == XK_End) {
@@ -1184,46 +1300,68 @@ static int run_input_dialog(char *out, int outsz) {
           int n = XLookupString(&e.xkey, buf, sizeof(buf), NULL, NULL);
           if (n > 0 && isprint((unsigned char)buf[0]) &&
               dlg_input_pos < MAX_PATH - 2) {
-            memmove(&dlg_input[dlg_input_pos+1],
-                    &dlg_input[dlg_input_pos],
+            memmove(&dlg_input[dlg_input_pos + 1], &dlg_input[dlg_input_pos],
                     strlen(&dlg_input[dlg_input_pos]) + 1);
             dlg_input[dlg_input_pos++] = buf[0];
           }
         }
-        draw_all(); draw_dialog();
+        draw_all();
+        draw_dialog();
       } else if (dlg_type == DIALOG_DELETE) {
         if (k == XK_Escape) {
-          dlg_type = DIALOG_NONE; dlg_result = 0; break;
+          dlg_type = DIALOG_NONE;
+          dlg_result = 0;
+          break;
         } else if (k == XK_Return || k == XK_KP_Enter) {
-          dlg_type = DIALOG_NONE; dlg_result = 1; break;
+          dlg_type = DIALOG_NONE;
+          dlg_result = 1;
+          break;
         }
-        draw_all(); draw_dialog();
+        draw_all();
+        draw_dialog();
       } else if (dlg_type == DIALOG_CONFIRM) {
-        if (k == XK_y || k == XK_Y) { dlg_result = 1;
-          dlg_type = DIALOG_NONE; break; }
-        if (k == XK_n || k == XK_N) { dlg_result = 0;
-          dlg_type = DIALOG_NONE; break; }
-        if (k == XK_a || k == XK_A) { dlg_result = 2;
-          dlg_type = DIALOG_NONE; break; }
-        if (k == XK_Escape) { dlg_result = 0;
-          dlg_type = DIALOG_NONE; break; }
+        if (k == XK_y || k == XK_Y) {
+          dlg_result = 1;
+          dlg_type = DIALOG_NONE;
+          break;
+        }
+        if (k == XK_n || k == XK_N) {
+          dlg_result = 0;
+          dlg_type = DIALOG_NONE;
+          break;
+        }
+        if (k == XK_a || k == XK_A) {
+          dlg_result = 2;
+          dlg_type = DIALOG_NONE;
+          break;
+        }
+        if (k == XK_Escape) {
+          dlg_result = 0;
+          dlg_type = DIALOG_NONE;
+          break;
+        }
       } else if (dlg_type == DIALOG_MESSAGE) {
         if (k == XK_Return || k == XK_KP_Enter || k == XK_Escape) {
-          dlg_type = DIALOG_NONE; dlg_result = 1; break;
+          dlg_type = DIALOG_NONE;
+          dlg_result = 1;
+          break;
         }
       } else if (dlg_type == DIALOG_ABOUT) {
         if (k == XK_Return || k == XK_KP_Enter || k == XK_Escape) {
-          dlg_type = DIALOG_NONE; dlg_result = 1; break;
+          dlg_type = DIALOG_NONE;
+          dlg_result = 1;
+          break;
         }
       } else if (dlg_type == DIALOG_BROWSE) {
         if (k == XK_Escape) {
-          dlg_type = DIALOG_NONE; dlg_result = 0; break;
+          dlg_type = DIALOG_NONE;
+          dlg_result = 0;
+          break;
         } else if (k == XK_Return || k == XK_KP_Enter) {
           if (dlg_browse_nfiles > 0) {
             const char *nm = dlg_browse_files[dlg_browse_sel].name;
             char np[MAX_PATH];
-            snprintf(np, sizeof(np), "%s/%s",
-                     dlg_browse_path, nm);
+            snprintf(np, sizeof(np), "%s/%s", dlg_browse_path, nm);
             load_browse_dir(np);
           }
         } else if (k == XK_BackSpace) {
@@ -1231,21 +1369,27 @@ static int run_input_dialog(char *out, int outsz) {
           snprintf(np, sizeof(np), "%s/..", dlg_browse_path);
           load_browse_dir(np);
         } else if (k == XK_Tab) {
-          strncpy(out, dlg_browse_path, outsz-1);
-          out[outsz-1] = 0;
-          dlg_type = DIALOG_NONE; dlg_result = 1; break;
+          strncpy(out, dlg_browse_path, outsz - 1);
+          out[outsz - 1] = 0;
+          dlg_type = DIALOG_NONE;
+          dlg_result = 1;
+          break;
         } else if (k == XK_Up) {
-          if (dlg_browse_sel > 0) dlg_browse_sel--;
+          if (dlg_browse_sel > 0)
+            dlg_browse_sel--;
         } else if (k == XK_Down) {
           if (dlg_browse_sel < dlg_browse_nfiles - 1)
             dlg_browse_sel++;
         }
-        draw_all(); draw_dialog();
+        draw_all();
+        draw_dialog();
       }
     } else if (e.type == ButtonPress) {
       int mx = e.xbutton.x, my = e.xbutton.y;
       if (dlg_type == DIALOG_MESSAGE || dlg_type == DIALOG_ABOUT) {
-        dlg_type = DIALOG_NONE; dlg_result = 1; break;
+        dlg_type = DIALOG_NONE;
+        dlg_result = 1;
+        break;
       }
       if (dlg_type == DIALOG_BROWSE) {
         int dx = (win_w - 520) / 2;
@@ -1260,11 +1404,12 @@ static int run_input_dialog(char *out, int outsz) {
         }
         /* double-click detection */
         static Time last_click = 0;
-        static int  last_idx = -1;
+        static int last_idx = -1;
         if (e.xbutton.button == 1) {
           Time now = e.xbutton.time;
           int idx = (my - ly) / ROW_H + dlg_browse_top;
-          if (now - last_click < 400 && idx == last_idx && idx >= 0 && idx < dlg_browse_nfiles) {
+          if (now - last_click < 400 && idx == last_idx && idx >= 0 &&
+              idx < dlg_browse_nfiles) {
             const char *nm = dlg_browse_files[idx].name;
             char np[MAX_PATH];
             snprintf(np, sizeof(np), "%s/%s", dlg_browse_path, nm);
@@ -1273,11 +1418,14 @@ static int run_input_dialog(char *out, int outsz) {
           last_click = now;
           last_idx = idx;
         }
-        draw_all(); draw_dialog();
+        draw_all();
+        draw_dialog();
       }
       if (dlg_type == DIALOG_CONFIRM) {
         /* Any click means "no" to avoid accidental overwrites */
-        dlg_type = DIALOG_NONE; dlg_result = 0; break;
+        dlg_type = DIALOG_NONE;
+        dlg_result = 0;
+        break;
       }
     }
   }
@@ -1285,7 +1433,8 @@ static int run_input_dialog(char *out, int outsz) {
 }
 
 static void open_selected(void) {
-  if (sel_start >= nfiles) return;
+  if (sel_start >= nfiles)
+    return;
   FileEntry *fe = &files[sel_start];
   char full[MAX_PATH];
   snprintf(full, sizeof(full), "%s/%s", cwd, fe->name);
@@ -1294,19 +1443,20 @@ static void open_selected(void) {
   } else if (fe->is_exec) {
     /* launch asynchronously */
     if (fork() == 0) {
-      execl(full, fe->name, (char*)NULL);
+      execl(full, fe->name, (char *)NULL);
       _exit(127);
     }
     set_status("Launched %s", fe->name);
   } else {
     /* what to do with non-executable */
     char prompt[512];
-    snprintf(prompt, sizeof(prompt), "Open \"%s\" with which program?", fe->name);
+    snprintf(prompt, sizeof(prompt), "Open \"%s\" with which program?",
+             fe->name);
     start_input_dialog(prompt, "");
     char cmd[MAX_PATH];
     if (run_input_dialog(cmd, sizeof(cmd)) == 1 && cmd[0]) {
       if (fork() == 0) {
-        execlp(cmd, cmd, full, (char*)NULL);
+        execlp(cmd, cmd, full, (char *)NULL);
         _exit(127);
       }
     }
@@ -1324,14 +1474,16 @@ static void menu_action(int item) {
     break;
   case 1: // Copy
   case 2: // Move
-    if (sel_start >= nfiles) break;
+    if (sel_start >= nfiles)
+      break;
     clip_nfiles = 0;
     clip_is_move = (item == 2);
     for (int i = sel_start; i <= sel_end && i < nfiles; i++) {
       snprintf(clip_files[clip_nfiles], MAX_PATH, "%s/%s", cwd, files[i].name);
       clip_nfiles++;
     }
-    strcpy(dlg_prompt, clip_is_move ? "Select destination for MOVE:" : "Select destination for COPY:");
+    strcpy(dlg_prompt, clip_is_move ? "Select destination for MOVE:"
+                                    : "Select destination for COPY:");
     load_browse_dir(cwd);
     dlg_type = DIALOG_BROWSE;
     dlg_result = -1;
@@ -1352,7 +1504,8 @@ static void menu_action(int item) {
       do_rename(buf);
     break;
   case 4: // Delete
-    if (sel_start >= nfiles) break;
+    if (sel_start >= nfiles)
+      break;
     start_delete_dialog("Delete selected?");
     if (run_input_dialog(buf, sizeof(buf)) == 1) {
       begin_progress("Delete");
@@ -1374,10 +1527,13 @@ static void menu_action(int item) {
 static int hit_menu(int mx, int my, int *which) {
   if (my >= 0 && my < MENUBAR_H) {
     int x = 6;
-    const char *items[] = { "File", "View", "Special" };
+    const char *items[] = {"File", "View", "Special"};
     for (int i = 0; i < 3; i++) {
       int w = strlen(items[i]) * CHAR_W + 12;
-      if (mx >= x && mx < x + w) { *which = i; return 1; }
+      if (mx >= x && mx < x + w) {
+        *which = i;
+        return 1;
+      }
       x += w;
     }
   }
@@ -1386,40 +1542,54 @@ static int hit_menu(int mx, int my, int *which) {
 
 static int hit_drive(int mx, int my, int *which) {
   int y = MENUBAR_H + 2;
-  if (my < y || my > y + 26) return 0;
+  if (my < y || my > y + 26)
+    return 0;
   int x = 8;
   for (int i = 0; i < ndrives; i++) {
-    if (mx >= x && mx < x + 60+32) { *which = i; return 1; } // +32
-    x += 68+32; // +32
-    if (x + 60+32 > win_w - 200) break; // +32
+    if (mx >= x && mx < x + 60 + 32) {
+      *which = i;
+      return 1;
+    }             // +32
+    x += 68 + 32; // +32
+    if (x + 60 + 32 > win_w - 200)
+      break; // +32
   }
   return 0;
 }
 
 static int hit_file(int mx, int my, int *which) {
   int area_y = MENUBAR_H + DRIVEBAR_H + PATHBAR_H;
-  if (my < area_y) return 0;
-  if (mx >= file_area_content_w()) return 0;
+  if (my < area_y)
+    return 0;
+  if (mx >= file_area_content_w())
+    return 0;
   int rows = file_rows();
   int cols = file_cols();
   int col = mx / 300;
-  if (col < 0 || col >= cols) return 0;
+  if (col < 0 || col >= cols)
+    return 0;
   int row = (my - area_y) / ROW_H;
-  if (row < 0 || row >= rows) return 0;
+  if (row < 0 || row >= rows)
+    return 0;
   int rel = col * rows + row;
   int idx = top_index * cols + rel;
-  if (idx < 0 || idx >= nfiles) return 0;
+  if (idx < 0 || idx >= nfiles)
+    return 0;
   *which = idx;
   return 1;
 }
 
 static int hit_menu_item(int mx, int my, int *which) {
-  if (!menu_open || menu_item != 0) return 0;
+  if (!menu_open || menu_item != 0)
+    return 0;
   int x = 6, y = MENUBAR_H, w = 220, h = 6 * 18 + 6;
-  if (mx < x || mx > x + w) return 0;
-  if (my < y || my > y + h) return 0;
+  if (mx < x || mx > x + w)
+    return 0;
+  if (my < y || my > y + h)
+    return 0;
   int idx = (my - y - 6) / 18;
-  if (idx < 0 || idx > 5) return 0;
+  if (idx < 0 || idx > 5)
+    return 0;
   *which = idx;
   return 1;
 }
@@ -1428,7 +1598,8 @@ static int hit_menu_item(int mx, int my, int *which) {
 /* Main */
 /* ================================================================ */
 int main(int argc, char **argv) {
-  (void)argc; (void)argv;
+  (void)argc;
+  (void)argv;
 
   dpy = XOpenDisplay(NULL);
   if (!dpy) {
@@ -1441,27 +1612,38 @@ int main(int argc, char **argv) {
   cmap = DefaultColormap(dpy, scr);
 
   /* Fonts */
-  font = XLoadQueryFont(dpy, "-*-fixed-medium-r-normal--14-*-*-*-*-*-iso8859-1");
-  if (!font) font = XLoadQueryFont(dpy, "fixed");
-  font_bold = XLoadQueryFont(dpy, "-*-fixed-bold-r-normal--14-*-*-*-*-*-iso8859-1");
-  if (!font_bold) font_bold = XLoadQueryFont(dpy, "-*-fixed-bold-r-normal--*-*-*-*-*-iso8859-1");
-  if (!font_bold) font_bold = font;
+  font =
+      XLoadQueryFont(dpy, "-*-fixed-medium-r-normal--14-*-*-*-*-*-iso8859-1");
+  if (!font)
+    font = XLoadQueryFont(dpy, "fixed");
+  font_bold =
+      XLoadQueryFont(dpy, "-*-fixed-bold-r-normal--14-*-*-*-*-*-iso8859-1");
+  if (!font_bold)
+    font_bold =
+        XLoadQueryFont(dpy, "-*-fixed-bold-r-normal--*-*-*-*-*-iso8859-1");
+  if (!font_bold)
+    font_bold = font;
 
   XWindowAttributes root_attrs;
   int init_x = 0, init_y = 0;
   if (XGetWindowAttributes(dpy, root, &root_attrs)) {
-    init_x = (root_attrs.width  - WIN_W) / 2 + MENUBAR_H / 2;
+    init_x = (root_attrs.width - WIN_W) / 2 + MENUBAR_H / 2;
     init_y = (root_attrs.height - WIN_H) / 2 + MENUBAR_H / 2;
-    if (init_x < 0) init_x = 0;
-    if (init_y < 0) init_y = 0;
+    if (init_x < 0)
+      init_x = 0;
+    if (init_y < 0)
+      init_y = 0;
   }
-  win = XCreateSimpleWindow(dpy, root, init_x, init_y, WIN_W, WIN_H, 1, COL_FG, COL_BG);
+  win = XCreateSimpleWindow(dpy, root, init_x, init_y, WIN_W, WIN_H, 1, COL_FG,
+                            COL_BG);
   {
     Cursor cursor = XCreateFontCursor(dpy, XC_left_ptr);
     XDefineCursor(dpy, win, cursor);
   }
   XStoreName(dpy, win, "GNUOS Executive");
-  XSelectInput(dpy, win, ExposureMask | KeyPressMask | ButtonPressMask | ButtonReleaseMask | StructureNotifyMask);
+  XSelectInput(dpy, win,
+               ExposureMask | KeyPressMask | ButtonPressMask |
+                   ButtonReleaseMask | StructureNotifyMask);
   XMapWindow(dpy, win);
   set_window_icon(win);
   gc = XCreateGC(dpy, win, 0, NULL);
@@ -1474,7 +1656,7 @@ int main(int argc, char **argv) {
 
   /* Drag selection state */
   static Time last_click_time = 0;
-  static int  last_click_idx = -1;
+  static int last_click_idx = -1;
 
   /* Event loop */
   for (;;) {
@@ -1495,17 +1677,21 @@ int main(int argc, char **argv) {
       switch (k) {
       case XK_Up:
         if (sel_start > 0) {
-          sel_start--; sel_end = sel_start;
+          sel_start--;
+          sel_end = sel_start;
           int sel_row = sel_start % visible_rows();
-          if (sel_row < top_index) top_index = sel_row;
+          if (sel_row < top_index)
+            top_index = sel_row;
           clamp_scroll();
         }
         break;
       case XK_Down:
         if (sel_end < nfiles - 1) {
-          sel_end++; sel_start = sel_end;
+          sel_end++;
+          sel_start = sel_end;
           int sel_row = sel_end % visible_rows();
-          if (sel_row >= top_index + visible_rows()) top_index = sel_row - visible_rows() + 1;
+          if (sel_row >= top_index + visible_rows())
+            top_index = sel_row - visible_rows() + 1;
           clamp_scroll();
         }
         break;
@@ -1546,26 +1732,25 @@ int main(int argc, char **argv) {
             do_rename(b);
         }
         break;
-      case XK_F7:
-        {
-          char b[MAX_PATH];
-          start_input_dialog("Name of new directory:", "");
-          if (run_input_dialog(b, sizeof(b)) == 1 && b[0])
-            do_mkdir(b);
-        }
-        break;
+      case XK_F7: {
+        char b[MAX_PATH];
+        start_input_dialog("Name of new directory:", "");
+        if (run_input_dialog(b, sizeof(b)) == 1 && b[0])
+          do_mkdir(b);
+      } break;
       case XK_F8:
-      case XK_Delete:
-        {
-          char b[MAX_PATH];
-          start_delete_dialog("Delete selected?");
-          if (run_input_dialog(b, sizeof(b)) == 1)
-            do_delete();
-        }
-        break;
+      case XK_Delete: {
+        char b[MAX_PATH];
+        start_delete_dialog("Delete selected?");
+        if (run_input_dialog(b, sizeof(b)) == 1)
+          do_delete();
+      } break;
       default:
         if (k == XK_Escape) {
-          if (menu_open) { menu_open = 0; draw_all(); }
+          if (menu_open) {
+            menu_open = 0;
+            draw_all();
+          }
         }
         break;
       }
@@ -1578,8 +1763,10 @@ int main(int argc, char **argv) {
       if (button == Button4 || button == Button5) {
         int area_y = MENUBAR_H + DRIVEBAR_H + PATHBAR_H;
         if (my >= area_y) {
-          if (button == Button4) top_index -= 3;
-          else top_index += 3;
+          if (button == Button4)
+            top_index -= 3;
+          else
+            top_index += 3;
           clamp_scroll();
           draw_all();
         }
@@ -1592,12 +1779,16 @@ int main(int argc, char **argv) {
           int sw = 220;
           int sh = 2 * 18 + 6 + SEPARATOR_H * special_menu_separators;
           if (mx >= sx && mx < sx + sw && my >= sy && my < sy + sh) {
-            int idx = (my - sy - 6 + SEPARATOR_H * special_menu_separators / 2)
-              / (18 + SEPARATOR_H * special_menu_separators / 2);
+            int idx =
+                (my - sy - 6 + SEPARATOR_H * special_menu_separators / 2) /
+                (18 + SEPARATOR_H * special_menu_separators / 2);
             special_menu_open = 0;
             if (idx == 0) { // About
               XSync(dpy, False);
-              while (XPending(dpy)) { XEvent d; XNextEvent(dpy, &d); }
+              while (XPending(dpy)) {
+                XEvent d;
+                XNextEvent(dpy, &d);
+              }
               start_about_dialog();
               char tmp[4];
               run_input_dialog(tmp, sizeof(tmp));
@@ -1617,8 +1808,12 @@ int main(int argc, char **argv) {
         if (hit_menu(mx, my, &which)) {
           if (which == 0) { // File
             special_menu_open = 0;
-            if (menu_open && menu_item == 0) menu_open = 0;
-            else { menu_open = 1; menu_item = 0; }
+            if (menu_open && menu_item == 0)
+              menu_open = 0;
+            else {
+              menu_open = 1;
+              menu_item = 0;
+            }
           } else if (which == 1) { // View
             short_view = !short_view;
             menu_open = 0;
@@ -1649,8 +1844,13 @@ int main(int argc, char **argv) {
           last_click_time = now;
           last_click_idx = which;
           if (shift && drag_anchor >= 0) {
-            if (which < drag_anchor) { sel_start = which; sel_end = drag_anchor; }
-            else { sel_start = drag_anchor; sel_end = which; }
+            if (which < drag_anchor) {
+              sel_start = which;
+              sel_end = drag_anchor;
+            } else {
+              sel_start = drag_anchor;
+              sel_end = which;
+            }
           } else {
             sel_start = sel_end = which;
             drag_anchor = which;
@@ -1666,11 +1866,11 @@ int main(int argc, char **argv) {
         else if (total_file_rows() > file_rows()) {
           int sb_x, sb_y, sb_w, sb_h;
           int arrow_h, track_y, track_h, thumb_y, thumb_h;
-          scrollbar_geometry(&sb_x, &sb_y, &sb_w, &sb_h,
-                             &arrow_h, &track_y, &track_h,
-                             &thumb_y, &thumb_h);
+          scrollbar_geometry(&sb_x, &sb_y, &sb_w, &sb_h, &arrow_h, &track_y,
+                             &track_h, &thumb_y, &thumb_h);
 
-          if (mx >= sb_x && mx < sb_x + sb_w && my >= sb_y && my < sb_y + sb_h) {
+          if (mx >= sb_x && mx < sb_x + sb_w && my >= sb_y &&
+              my < sb_y + sb_h) {
             if (my < track_y) {
               /* Upper arrow */
               top_index -= 1;
