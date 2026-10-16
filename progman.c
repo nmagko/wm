@@ -27,6 +27,7 @@
 #include <dirent.h>
 #include <ctype.h>
 #include <time.h>
+#include <fcntl.h>
 #include <sys/stat.h>
 #include <sys/wait.h>
 #include <sys/types.h>
@@ -392,121 +393,129 @@ static int find_icon_png(const char *name, char *out, int outsz) {
   return 0;
 }
 
-/* Load a PNG into a Pixmap of the given size */
+/* Load and downscale a PNG into a Pixmap */
 static Pixmap load_png_pixmap(const char *path, int *out_w, int *out_h) {
   FILE *fp = fopen(path, "rb");
   if (!fp) return None;
-
-  png_structp png = png_create_read_struct(PNG_LIBPNG_VER_STRING,
-                                           NULL, NULL, NULL);
+  fcntl(fileno(fp), F_SETFD, FD_CLOEXEC);
+  png_structp png = png_create_read_struct(PNG_LIBPNG_VER_STRING, NULL, NULL, NULL);
   if (!png) { fclose(fp); return None; }
   png_infop info = png_create_info_struct(png);
   if (!info) { png_destroy_read_struct(&png, NULL, NULL); fclose(fp); return None; }
+  /* Everything allocated before setjmp() must be freed */
+  png_bytep *rows = NULL;
+  png_bytep data = NULL;
+  char *small = NULL;
+  XImage *small_img = NULL;
+  Pixmap pix = None;
+  GC gc2 = NULL;
   if (setjmp(png_jmpbuf(png))) {
+    if (gc2) XFreeGC(dpy, gc2);
+    if (pix != None) XFreePixmap(dpy, pix);
+    if (small_img) XDestroyImage(small_img);
+    else free(small);
+    free(data);
+    free(rows);
     png_destroy_read_struct(&png, &info, NULL);
     fclose(fp);
     return None;
   }
   png_init_io(png, fp);
   png_read_info(png, info);
-
   png_uint_32 w = png_get_image_width(png, info);
   png_uint_32 h = png_get_image_height(png, info);
   png_byte color_type = png_get_color_type(png, info);
-  png_byte bit_depth  = png_get_bit_depth(png, info);
-
+  png_byte bit_depth = png_get_bit_depth(png, info);
   if (bit_depth == 16) png_set_strip_16(png);
   if (color_type == PNG_COLOR_TYPE_PALETTE) png_set_palette_to_rgb(png);
-  if (color_type == PNG_COLOR_TYPE_GRAY && bit_depth < 8) png_set_expand_gray_1_2_4_to_8(png);
+  if (color_type == PNG_COLOR_TYPE_GRAY && bit_depth < 8)
+    png_set_expand_gray_1_2_4_to_8(png);
   if (png_get_valid(png, info, PNG_INFO_tRNS)) png_set_tRNS_to_alpha(png);
   if (color_type == PNG_COLOR_TYPE_RGB || color_type == PNG_COLOR_TYPE_GRAY || color_type == PNG_COLOR_TYPE_PALETTE)
     png_set_filler(png, 0xFF, PNG_FILLER_AFTER);
   if (color_type == PNG_COLOR_TYPE_GRAY || color_type == PNG_COLOR_TYPE_GRAY_ALPHA)
     png_set_gray_to_rgb(png);
-
   png_read_update_info(png, info);
-
-  png_bytep *rows = malloc(sizeof(png_bytep) * h);
-  if (!rows) { png_destroy_read_struct(&png, &info, NULL); fclose(fp); return None; }
+  rows = malloc(sizeof(png_bytep) * h);
+  if (!rows) longjmp(png_jmpbuf(png), 1);
   size_t rowbytes = png_get_rowbytes(png, info);
-  png_bytep data = malloc(rowbytes * h);
-  if (!data) { free(rows); png_destroy_read_struct(&png, &info, NULL); fclose(fp); return None; }
-  for (png_uint_32 y = 0; y < h; y++) rows[y] = data + y * rowbytes;
-
+  data = malloc(rowbytes * h);
+  if (!data) longjmp(png_jmpbuf(png), 1);
+  for (png_uint_32 y = 0; y < h; y++)
+    rows[y] = data + (size_t)y * rowbytes;
   png_read_image(png, rows);
   png_read_end(png, NULL);
   png_destroy_read_struct(&png, &info, NULL);
   fclose(fp);
-
-  int outw = (int)w;
-  int outh = (int)h;
-
+  png = NULL;
+  info = NULL;
+  /* Downscale to 32 */
+  const int DST = ICON_SIZE;
   int depth = DefaultDepth(dpy, scr);
   Visual *visual = DefaultVisual(dpy, scr);
-
-  /* Allocate the pixel buffer and create the XImage BEFORE filling it */
-  char *ximg_data = calloc((size_t)outw * outh * 4, 1);
-  if (!ximg_data) { free(data); free(rows); return None; }
-
-  XImage *ximg = XCreateImage(dpy, visual, depth, ZPixmap, 0,
-                              ximg_data, outw, outh, 32, 0);
-  if (!ximg) { free(ximg_data); free(data); free(rows); return None; }
-
-  /* Composite each pixel against the white icon background */
-  const unsigned char bg_r = 0xFF, bg_g = 0xFF, bg_b = 0xFF;
-
-  for (int y = 0; y < outh; y++) {
-    png_bytep src = rows[y];
-    for (int x = 0; x < outw; x++) {
-      unsigned char r = src[x*4+0];
-      unsigned char g = src[x*4+1];
-      unsigned char b = src[x*4+2];
-      unsigned char a = src[x*4+3];
-
-      unsigned char cr = (r * a + bg_r * (255 - a)) / 255;
-      unsigned char cg = (g * a + bg_g * (255 - a)) / 255;
-      unsigned char cb = (b * a + bg_b * (255 - a)) / 255;
-
-      /* Pack the channel values into their proper positions */
-      unsigned long pixel = 0;
-      pixel |= (unsigned long)cr << 16;
-      pixel |= (unsigned long)cg <<  8;
-      pixel |= (unsigned long)cb;
-
-      /* Adjust the visual's masks */
-      {
-        unsigned long rm = visual->red_mask;
-        unsigned long gm = visual->green_mask;
-        unsigned long bm = visual->blue_mask;
-        /* 8-bit-per-channel */
-        (void)rm; (void)gm; (void)bm;
-      }
-
-      if (ximg->byte_order == LSBFirst) {
-        ximg_data[(y * outw + x) * 4 + 0] = (pixel      ) & 0xFF;
-        ximg_data[(y * outw + x) * 4 + 1] = (pixel >>  8) & 0xFF;
-        ximg_data[(y * outw + x) * 4 + 2] = (pixel >> 16) & 0xFF;
-        ximg_data[(y * outw + x) * 4 + 3] = 0;
-      } else {
-        ximg_data[(y * outw + x) * 4 + 0] = (pixel >> 24) & 0xFF;
-        ximg_data[(y * outw + x) * 4 + 1] = (pixel >> 16) & 0xFF;
-        ximg_data[(y * outw + x) * 4 + 2] = (pixel >>  8) & 0xFF;
-        ximg_data[(y * outw + x) * 4 + 3] = (pixel      ) & 0xFF;
-      }
+  /* 32 bits per pixel so we can write 0x00RRGGBB in the low 24 bits */
+  const int bpp = 32;
+  size_t small_sz = (size_t)DST * DST * 4;
+  small = calloc(small_sz, 1);
+  if (!small) {
+    free(data);
+    free(rows);
+    return None;
+  }
+  small_img = XCreateImage(dpy, visual, depth, ZPixmap, 0, small, DST, DST, bpp, 0);
+  if (!small_img) {
+    free(small);
+    free(data);
+    free(rows);
+    return None;
+  }
+  /* ownership transferred */
+  small = NULL;
+  /* Precompute the source row index for each destination row */
+  int sy_row[DST];
+  int sx_col[DST];
+  for (int y = 0; y < DST; y++) sy_row[y] = (int)((png_uint_32)y * h / DST);
+  for (int x = 0; x < DST; x++) sx_col[x] = (int)((png_uint_32)x * w / DST);
+  for (int y = 0; y < DST; y++) {
+    png_bytep src = rows[sy_row[y]];
+    for (int x = 0; x < DST; x++) {
+      int sx = sx_col[x];
+      unsigned char r = src[sx*4 + 0];
+      unsigned char g = src[sx*4 + 1];
+      unsigned char b = src[sx*4 + 2];
+      unsigned char a = src[sx*4 + 3];
+      /* Composite over white */
+      unsigned char cr = (unsigned char)((r * a + 0xFF * (255 - a)) / 255);
+      unsigned char cg = (unsigned char)((g * a + 0xFF * (255 - a)) / 255);
+      unsigned char cb = (unsigned char)((b * a + 0xFF * (255 - a)) / 255);
+      /* Pack as 0x00RRGGBB in native order */
+      unsigned long pixel = ((unsigned long)cr << 16) | ((unsigned long)cg << 8) | (unsigned long)cb;
+      /* Write the pixel */
+      XPutPixel(small_img, x, y, pixel);
     }
   }
-
-  Pixmap pix = XCreatePixmap(dpy, win, outw, outh, depth);
-  GC gc2 = XCreateGC(dpy, pix, 0, NULL);
-  XPutImage(dpy, pix, gc2, ximg, 0, 0, 0, 0, outw, outh);
+  pix = XCreatePixmap(dpy, win, DST, DST, depth);
+  if (pix == None) {
+    XDestroyImage(small_img);
+    free(data);
+    free(rows);
+    return None;
+  }
+  gc2 = XCreateGC(dpy, pix, 0, NULL);
+  if (!gc2) {
+    XFreePixmap(dpy, pix);
+    XDestroyImage(small_img);
+    free(data);
+    free(rows);
+    return None;
+  }
+  XPutImage(dpy, pix, gc2, small_img, 0, 0, 0, 0, DST, DST);
   XFreeGC(dpy, gc2);
-
-  XDestroyImage(ximg); // frees ximg_data
+  XDestroyImage(small_img);
   free(data);
   free(rows);
-
-  *out_w = outw;
-  *out_h = outh;
+  *out_w = DST;
+  *out_h = DST;
   return pix;
 }
 
@@ -1111,7 +1120,6 @@ static void launch_app(Group *g, int idx) {
   }
   if (pid > 0) {
     /* reap the intermediate child */
-    waitpid(pid, NULL, 0);
     free_exec_argv(argv, argc);
     return;
   }
@@ -1120,6 +1128,11 @@ static void launch_app(Group *g, int idx) {
   if (pid2 > 0) _exit(0);
   /* detach, close stdio, exec */
   setsid();
+  /* Detach from X11 before exec the app */
+  if (dpy) {
+    close(ConnectionNumber(dpy));
+    dpy = NULL;
+  }
   execvp(argv[0], argv);
   /* execvp failed */
   _exit(127);
@@ -1378,9 +1391,12 @@ int main(int argc, char **argv) {
     fprintf(stderr, "Cannot open display\n");
     return 1;
   }
+  int xfd = ConnectionNumber(dpy);
+  fcntl(xfd, F_SETFD, fcntl(xfd, F_GETFD) | FD_CLOEXEC);
   signal(SIGTERM, on_terminate_signal);
   signal(SIGINT,  on_terminate_signal);
   signal(SIGHUP,  on_terminate_signal);
+  signal(SIGCHLD, SIG_IGN);
   scr = DefaultScreen(dpy);
   root = RootWindow(dpy, scr);
   wait_for_window_manager(5000);
